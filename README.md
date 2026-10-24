@@ -1,3 +1,35 @@
+# Goblin Den — Connected Opening
+
+Open project.godot in Godot and press F5. This is the latest editable game project.
+
+You begin in Hearth Hall. Walk through the tunnels to reach the Treasure Alcove to the north, Armory to the south, and Tribe Quarters beyond the Armory. The eastern Watch Tunnels lead through the human incursion camp to Daylight Grotto. A northern loop passes through the optional Rootvein spider nest.
+
+The whole interior is one continuous map. Walk between chambers; press E only for people, supplies, facilities, loot, and the surface exit. Clear enemies when you choose to fight them; exploration is no longer locked behind arena-clear gates. The old cave-mouth ogre encounter has been removed. The wolf rider in the hollow remains a threat, but does not lock the forest trail.
+
+Your existing progress remains usable. Older saved recovery loot is moved from the old rooms into the matching new chamber. Cleared opening defenders stay cleared when you reload; the War Room can launch a fresh raid.
+
+Esc opens the menu, controls/training and audio settings. Music and sound effects have separate volume controls. Defeated monsters require explicit loot claims.
+
+See CONNECTED-OPENING.md for the map structure, art sources and validation. Earlier update notes remain in the project as history.
+
+---
+
+# Latest update: RPG music, sound effects & wider aggro
+
+Dungeon guards now notice you 25% farther away, with sight and retreat rules retained. Three original background themes and new effects are included. Audio controls: Esc → Audio. See `AUDIO-AND-AGGRO.md`. Open `project.godot` in Godot and run the main scene.
+
+# Latest update: local dungeon aggro
+
+Dungeon guards engage nearby visible targets, then return home when you retreat. See `DUNGEON-AGGRO.md`. Includes all earlier art, HUD, NPC walking, loot selection and Bog Trail changes.
+
+# Latest build: living NPCs & selective loot
+
+Includes the painted dungeon, clean HUD and Bog Trail fix. Open `project.godot` in Godot and run the main scene. Approach defeated monsters and press E to choose their loot. See `LIVING-NPCS-AND-LOOT.md`. Controls are under Esc → Controls & training.
+
+This repository is the **First Expedition trial**: a bounded, replayable first outing built on the GoblinDen prototype (classes, connected den, Thornwood, loot, weather) with a Moss-driven contract loop, class rites, living weather, and a trail that always leads home.
+
+Play from [START_HERE.md](START_HERE.md). Open `project.godot` and press F5.
+
 Latest update: see [START_HERE_ENEMY_ANIMATIONS.md](START_HERE_ENEMY_ANIMATIONS.md) for unified Blade sprites, all enemy roles, spiders and the F6 enemy gallery.
 
 Latest update: see [START_HERE_CONNECTED_DEN.md](START_HERE_CONNECTED_DEN.md) for the connected den rooms and outdoor collision fixes.

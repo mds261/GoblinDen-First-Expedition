@@ -62,6 +62,16 @@ func _draw() -> void:
 	text_at(game.room_label.text.to_upper(),Vector2(365,37),18,PALE,510,true)
 	draw_line(Vector2(365,48),Vector2(665,48),Color(0.61,0.52,0.33,0.45),1)
 	text_at(game.objective.text,Vector2(365,68),12,MUTED,510)
+	text_at("%d scrap"%game.scrap,Vector2(365,88),11,GOLD)
+	if game.get("expedition") != null and game.expedition.is_inside_tree():
+		var sky := "Haven"
+		if not game.expedition.active.is_empty() and not game.expedition.active.get("claimed",false) and game.current_room != 0:
+			sky = str(game.expedition.active.weather)
+		text_at(sky,Vector2(455,88),11,MUTED)
+		if game.player.stealth_ambush:
+			text_at("AMBUSH READY",Vector2(530,88),11,Color("87d4b0"))
+		elif game.expedition.combo >= 2:
+			text_at("STREAK %d"%game.expedition.combo,Vector2(530,88),11,GOLD)
 	ability(Vector2(24,653),"Q","Special","Ready" if p.special_cooldown<=0 else "%.1fs" % p.special_cooldown,p.special_cooldown<=0)
 	ability(Vector2(90,653),"Shift","Dodge","Ready" if p.dodge_cooldown<=0 else "%.1fs" % p.dodge_cooldown,p.dodge_cooldown<=0)
 	ability(Vector2(156,653),"F","Potion",str(game.potions),game.potions>0)

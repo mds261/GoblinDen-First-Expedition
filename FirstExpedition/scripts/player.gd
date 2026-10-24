@@ -126,6 +126,8 @@ func get_effective_damage() -> int:
 	var expedition = get_parent().get("expedition")
 	if expedition != null:
 		extra += int(expedition.upgrades.edge)*3
+		if not expedition.active.is_empty() and not expedition.active.get("claimed",true):
+			extra += mini(int(expedition.combo), 4)
 	if class_id == "archer":
 		extra += ranged_bonus_damage
 	elif class_id == "mage":
@@ -139,6 +141,23 @@ func get_effective_damage() -> int:
 		extra += int(rpg.gear_stat("attack")) + rpg.proficiency_level(rpg.combat_skill())
 		extra += int(rpg.attributes.Dexterity if class_id == "archer" else (rpg.attributes.Intelligence if class_id == "mage" else rpg.attributes.Strength)) * 2
 	return maxi(5, attack_damage + extra)
+
+func _trial_profile() -> Dictionary:
+	var expedition = get_parent().get("expedition")
+	if expedition == null or not expedition.has_method("weather_profile"):
+		return {"move":1.0,"arrow":1.0,"conceal":false}
+	return expedition.weather_profile()
+
+func _trial_move_scale() -> float:
+	return float(_trial_profile().get("move", 1.0))
+
+func _trial_arrow_scale() -> float:
+	return float(_trial_profile().get("arrow", 1.0))
+
+func _trial_mist_cover() -> bool:
+	if not bool(_trial_profile().get("conceal", false)):
+		return false
+	return animation_velocity.length() < 14.0
 
 func heal(amount: int) -> void:
 	if hp <= 0:
@@ -183,9 +202,12 @@ func _physics_process(delta: float) -> void:
 		dodge_buffer = 0.0
 		special_buffer = 0.0
 		return
-	# Check shadow ambush zone in cave
+	# Check shadow ambush zone in cave, and mist concealment on the trial trail.
 	var cave = get_parent().get_node_or_null("Cave")
-	if is_instance_valid(cave) and cave.has_method("is_in_shadow_pool") and cave.is_in_shadow_pool(global_position):
+	var concealed: bool = is_instance_valid(cave) and cave.has_method("is_in_shadow_pool") and cave.is_in_shadow_pool(global_position)
+	if _trial_mist_cover():
+		concealed = true
+	if concealed:
 		stealth_timer += delta
 		if stealth_timer >= 0.45:
 			stealth_ambush = true
@@ -203,7 +225,7 @@ func _physics_process(delta: float) -> void:
 	if dodge_buffer > 0.0 and dodge_cooldown <= 0.0 and (rpg == null or rpg.stamina >= 25.0):
 		start_dodge()
 		dodge_buffer = 0.0
-	var target_velocity := direction * speed
+	var target_velocity := direction * speed * _trial_move_scale()
 	if finishing_dodge:
 		velocity = target_velocity
 	velocity = velocity.move_toward(target_velocity, (braking if direction == Vector2.ZERO else acceleration) * delta)
@@ -340,7 +362,7 @@ func _spawn_class_projectiles(dmg: int, bleed_val: int, poison_val: int) -> void
 		var shot := Projectile.new()
 		shot.global_position = global_position + facing * 20.0 + Vector2(0, -10)
 		var dir := facing.rotated(ang).normalized()
-		shot.velocity = dir * (460.0 if arrow else 395.0)
+		shot.velocity = dir * (460.0 if arrow else 395.0) * _trial_arrow_scale()
 		shot.damage = dmg if ang == 0.0 else maxi(6, int(dmg * 0.65))
 		shot.from_player_team = true
 		shot.owner_actor = self
@@ -554,6 +576,9 @@ func take_damage(amount: int) -> void:
 			final_amount = maxi(1, int(round(amount * (1.0 - total_reduction))))
 	hp = maxi(0, hp - final_amount)
 	last_damage_taken = final_amount
+	var expedition = get_parent().get("expedition")
+	if expedition != null and expedition.has_method("on_player_hit"):
+		expedition.on_player_hit()
 	hit_flash_time = 0.15
 	get_tree().call_group("combat_feedback", "impact", true)
 	invulnerability = 0.65

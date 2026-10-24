@@ -29,6 +29,8 @@ signal special_used(skill_name: String)
 signal camera_shake_requested(intensity: float, duration: float)
 
 @export var speed: float = 220.0
+@export var acceleration: float = 2400.0
+@export var braking: float = 4000.0
 @export var max_hp: int = 100
 @export var attack_damage: int = 25
 @export var attack_range: float = 84.0
@@ -47,6 +49,10 @@ var dodge_time: float = 0.0
 var dodge_direction := Vector2.RIGHT
 var attack_buffer: float = 0.0
 var mouse_aim: bool = false
+var animation_velocity := Vector2.ZERO
+var attack_facing := Vector2.RIGHT
+var dodge_buffer: float = 0.0
+var special_buffer: float = 0.0
 
 # Expanded RPG Class, Evolution, Level & Gear state
 var class_id: String = "blade"
@@ -88,6 +94,12 @@ func apply_class_and_gear(new_class_id: String, new_evo_id: String = "", keep_hp
 	var edata: Dictionary = GoblinData.EVOLUTIONS.get(evolution_id, {})
 	var ldata: Dictionary = GoblinData.LOOT_ITEMS.get(equipped_loot_id, {})
 	var base_max_hp: int = int(cdata["max_hp"]) + int(edata.get("hp_bonus", 0)) + int(ldata.get("max_hp", 0)) + (level - 1) * 10
+	var rpg = get_parent().get("rpg")
+	if rpg != null:
+		base_max_hp += int(rpg.gear_stat("health")) + int(rpg.attributes.Vitality) * 5
+	var expedition = get_parent().get("expedition")
+	if expedition != null:
+		base_max_hp += int(expedition.upgrades.ward)*10
 	max_hp = maxi(50, base_max_hp)
 	if keep_hp_ratio:
 		hp = clampi(int(round(max_hp * ratio)), 1, max_hp)
@@ -111,6 +123,11 @@ func get_effective_damage() -> int:
 	var cdata: Dictionary = GoblinData.CLASSES[class_id]
 	var class_offset: int = int(cdata["base_damage"]) - 25
 	var extra: int = bonus_damage + class_offset
+	var expedition = get_parent().get("expedition")
+	if expedition != null:
+		extra += int(expedition.upgrades.edge)*3
+		if not expedition.active.is_empty() and not expedition.active.get("claimed",true):
+			extra += mini(int(expedition.combo), 4)
 	if class_id == "archer":
 		extra += ranged_bonus_damage
 	elif class_id == "mage":
@@ -119,7 +136,28 @@ func get_effective_damage() -> int:
 	if evolution_id == "berserker" and hp < max_hp:
 		var missing := 1.0 - float(hp) / float(max_hp)
 		extra += int(round((attack_damage + extra) * missing * 0.35))
+	var rpg = get_parent().get("rpg")
+	if rpg != null:
+		extra += int(rpg.gear_stat("attack")) + rpg.proficiency_level(rpg.combat_skill())
+		extra += int(rpg.attributes.Dexterity if class_id == "archer" else (rpg.attributes.Intelligence if class_id == "mage" else rpg.attributes.Strength)) * 2
 	return maxi(5, attack_damage + extra)
+
+func _trial_profile() -> Dictionary:
+	var expedition = get_parent().get("expedition")
+	if expedition == null or not expedition.has_method("weather_profile"):
+		return {"move":1.0,"arrow":1.0,"conceal":false}
+	return expedition.weather_profile()
+
+func _trial_move_scale() -> float:
+	return float(_trial_profile().get("move", 1.0))
+
+func _trial_arrow_scale() -> float:
+	return float(_trial_profile().get("arrow", 1.0))
+
+func _trial_mist_cover() -> bool:
+	if not bool(_trial_profile().get("conceal", false)):
+		return false
+	return animation_velocity.length() < 14.0
 
 func heal(amount: int) -> void:
 	if hp <= 0:
@@ -144,6 +182,7 @@ func _physics_process(delta: float) -> void:
 	swing_time = maxf(0.0, swing_time - delta)
 	invulnerability = maxf(0.0, invulnerability - delta)
 	dodge_cooldown = maxf(0.0, dodge_cooldown - delta)
+	var finishing_dodge: bool = dodge_time > 0.0 and dodge_time <= delta
 	dodge_time = maxf(0.0, dodge_time - delta)
 	special_cooldown = maxf(0.0, special_cooldown - delta)
 	bulwark_timer = maxf(0.0, bulwark_timer - delta)
@@ -154,11 +193,21 @@ func _physics_process(delta: float) -> void:
 	var cam := get_node_or_null("Camera2D")
 	if is_instance_valid(cam):
 		CameraFX.update_shake(cam, delta)
-	if hp <= 0:
+	var rpg = get_parent().get("rpg")
+	if hp <= 0 or rpg != null and rpg.input_blocked():
+		velocity = Vector2.ZERO
+		_update_animation(delta, Vector2.ZERO)
+		queue_redraw()
+		attack_buffer = 0.0
+		dodge_buffer = 0.0
+		special_buffer = 0.0
 		return
-	# Check shadow ambush zone in cave
+	# Check shadow ambush zone in cave, and mist concealment on the trial trail.
 	var cave = get_parent().get_node_or_null("Cave")
-	if is_instance_valid(cave) and cave.has_method("is_in_shadow_pool") and cave.is_in_shadow_pool(global_position):
+	var concealed: bool = is_instance_valid(cave) and cave.has_method("is_in_shadow_pool") and cave.is_in_shadow_pool(global_position)
+	if _trial_mist_cover():
+		concealed = true
+	if concealed:
 		stealth_timer += delta
 		if stealth_timer >= 0.45:
 			stealth_ambush = true
@@ -170,18 +219,23 @@ func _physics_process(delta: float) -> void:
 		facing = direction
 	if mouse_aim and global_position.distance_to(get_global_mouse_position()) > 12.0:
 		facing = global_position.direction_to(get_global_mouse_position())
+	dodge_buffer = maxf(0.0, dodge_buffer - delta)
 	if Input.is_action_just_pressed("dodge"):
+		dodge_buffer = 0.14
+	if dodge_buffer > 0.0 and dodge_cooldown <= 0.0 and (rpg == null or rpg.stamina >= 25.0):
 		start_dodge()
-	velocity = direction * speed
+		dodge_buffer = 0.0
+	var target_velocity := direction * speed * _trial_move_scale()
+	if finishing_dodge:
+		velocity = target_velocity
+	velocity = velocity.move_toward(target_velocity, (braking if direction == Vector2.ZERO else acceleration) * delta)
 	if dodge_time > 0.0:
 		velocity = dodge_direction * speed * 2.8
+	# Animate distance actually travelled, so pushing into a wall doesn't walk in place.
+	var previous_position := global_position
 	move_and_slide()
-	appearance_animation.configure(class_id, evolution_id)
-	appearance_animation.update(delta, velocity, hp > 0, velocity.length() / maxf(speed, 1.0))
-	if class_id == "blade":
-		blade_animation.update(delta, velocity.length() > 5.0, hp > 0, velocity.length() / maxf(speed, 1.0))
-	else:
-		class_animation.update(delta, velocity.length() > 5.0, hp > 0, velocity.length() / maxf(speed, 1.0))
+	animation_velocity = (global_position - previous_position) / maxf(delta, 0.0001)
+	_update_animation(delta, animation_velocity)
 	# The exterior disables camera smoothing. Force the scroll transform after
 	# movement so Web builds cannot display one frame (or more) of stale view.
 	if is_instance_valid(cam) and not cam.position_smoothing_enabled:
@@ -192,11 +246,43 @@ func _physics_process(delta: float) -> void:
 	if attack_buffer > 0.0 and attack_cooldown <= 0.0 and dodge_time <= 0.0:
 		attack_buffer = 0.0
 		attack()
-	if Input.is_action_just_pressed("special_skill") and special_cooldown <= 0.0:
+	special_buffer = maxf(0.0, special_buffer - delta)
+	if Input.is_action_just_pressed("special_skill"):
+		special_buffer = 0.14
+	if special_buffer > 0.0 and special_cooldown <= 0.0 and dodge_time <= 0.0:
 		use_special()
+		special_buffer = 0.0
 	queue_redraw()
 
+func _update_animation(delta: float, movement: Vector2) -> void:
+	animation_velocity = movement
+	appearance_animation.configure(class_id, evolution_id)
+	var moving := movement.length() > 5.0
+	var movement_rate := movement.length() / maxf(speed, 1.0)
+	appearance_animation.update(delta, movement, hp > 0, movement_rate)
+	if class_id == "blade":
+		blade_animation.update(delta, moving, hp > 0, movement_rate)
+	else:
+		class_animation.update(delta, moving, hp > 0, movement_rate)
+
+func reset_motion() -> void:
+	velocity = Vector2.ZERO
+	animation_velocity = Vector2.ZERO
+	dodge_time = 0.0
+	attack_buffer = 0.0
+	dodge_buffer = 0.0
+	special_buffer = 0.0
+	swing_time = 0.0
+	for controller in [appearance_animation, blade_animation, class_animation]:
+		controller.attacking = false
+		controller.walk_time = 0.0
+
 func start_dodge() -> void:
+	var rpg = get_parent().get("rpg")
+	if rpg != null:
+		if rpg.stamina < 25.0 or dodge_cooldown > 0.0:
+			return
+		rpg.stamina -= 25.0
 	if hp <= 0 or dodge_cooldown > 0.0:
 		return
 	var movement := Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -209,11 +295,15 @@ func start_dodge() -> void:
 func attack() -> void:
 	if hp <= 0 or attack_cooldown > 0.0 or dodge_time > 0.0:
 		return
-	var cdata: Dictionary = GoblinData.CLASSES[class_id]
+	var cdata: Dictionary = GoblinData.CLASSES[class_id].duplicate()
+	var rpg = get_parent().get("rpg")
+	if rpg != null and rpg.equipped.has("weapon"):
+		cdata.ranged = rpg.combat_skill() in ["Distance Fighting", "Magic"]
 	var ldata: Dictionary = GoblinData.LOOT_ITEMS.get(equipped_loot_id, {})
 	var cd_mult: float = float(ldata.get("cooldown_mult", 1.0))
 	if evolution_id == "berserker" and hp < max_hp * 0.6:
 		cd_mult *= 0.82
+	attack_facing = facing
 	attack_cooldown = float(cdata["attack_cooldown"]) * cd_mult
 	swing_time = 0.16
 	appearance_animation.start_attack(minf(0.34 if class_id == "blade" else 0.4, attack_cooldown))
@@ -232,7 +322,6 @@ func attack() -> void:
 	var bleed_val: int = int(cdata["bleed_dps"]) + (6 if evolution_id in ["assassin", "berserker"] else 0)
 	var poison_val: int = int(cdata["poison_dps"]) + (8 if venom_coating_timer > 0.0 or evolution_id in ["assassin", "shaman", "hunter"] else 0)
 	# Close-range melee check works for all classes (and is primary for Blade & Knight Goblin)
-	var hit_any_melee := false
 	var melee_reach := attack_range if not bool(cdata["ranged"]) else 84.0
 	for enemy in get_tree().get_nodes_in_group("enemies"):
 		if not is_instance_valid(enemy) or not enemy.is_visible_in_tree() or enemy.hp <= 0:
@@ -255,7 +344,6 @@ func attack() -> void:
 					var heal_amt := maxi(2, int(base_dmg * 0.18))
 					heal(heal_amt)
 					FloatingText.spawn_heal(get_parent(), global_position + Vector2(0, -16), heal_amt)
-				hit_any_melee = true
 	# Ranged classes (Archer Goblin & Mage Goblin) also launch projectiles!
 	if bool(cdata["ranged"]):
 		_spawn_class_projectiles(base_dmg, bleed_val, poison_val)
@@ -265,6 +353,8 @@ func _spawn_class_projectiles(dmg: int, bleed_val: int, poison_val: int) -> void
 	var room_node := _get_active_room_node()
 	if not is_instance_valid(room_node):
 		return
+	var rpg = get_parent().get("rpg")
+	var arrow: bool = rpg.combat_skill() == "Distance Fighting" if rpg != null else class_id == "archer"
 	var angles: Array[float] = [0.0]
 	if evolution_id == "hunter":
 		angles = [-0.18, 0.0, 0.18]
@@ -272,11 +362,11 @@ func _spawn_class_projectiles(dmg: int, bleed_val: int, poison_val: int) -> void
 		var shot := Projectile.new()
 		shot.global_position = global_position + facing * 20.0 + Vector2(0, -10)
 		var dir := facing.rotated(ang).normalized()
-		shot.velocity = dir * (460.0 if class_id == "archer" else 395.0)
+		shot.velocity = dir * (460.0 if arrow else 395.0) * _trial_arrow_scale()
 		shot.damage = dmg if ang == 0.0 else maxi(6, int(dmg * 0.65))
 		shot.from_player_team = true
 		shot.owner_actor = self
-		shot.style = "arrow" if class_id == "archer" else ("fire" if evolution_id == "warlock" else "hex")
+		shot.style = "arrow" if arrow else ("fire" if evolution_id == "warlock" else "hex")
 		shot.poison_dps = poison_val
 		shot.bleed_dps = bleed_val
 		shot.slow_time = 1.6 if class_id == "mage" else 0.0
@@ -288,7 +378,8 @@ func use_special() -> void:
 	if hp <= 0 or special_cooldown > 0.0:
 		return
 	var cdata: Dictionary = GoblinData.CLASSES[class_id]
-	special_cooldown = float(cdata["special_cooldown"])
+	attack_facing = facing
+	special_cooldown = get_special_cooldown()
 	swing_time = 0.25
 	appearance_animation.start_attack(0.34 if class_id == "blade" else 0.4)
 	if class_id == "blade":
@@ -408,6 +499,10 @@ func use_special() -> void:
 	special_used.emit(get_special_name())
 	queue_redraw()
 
+func get_special_cooldown() -> float:
+	var definition: Dictionary = GoblinData.EVOLUTIONS.get(evolution_id, GoblinData.CLASSES[class_id])
+	return maxf(0.08, float(definition.get("special_cooldown", 4.0)))
+
 func get_special_name() -> String:
 	if evolution_id != "" and GoblinData.EVOLUTIONS.has(evolution_id):
 		return str(GoblinData.EVOLUTIONS[evolution_id].get("special_name", GoblinData.CLASSES[class_id]["special_name"]))
@@ -471,12 +566,19 @@ func take_damage(amount: int) -> void:
 	var final_amount := amount
 	# Apply Knight Goblin / Guardian / Bulwark / Equipment armor reduction on normal combat hits
 	if amount < 500:
-		var total_reduction := armor_rating + (0.35 if bulwark_timer > 0.0 else 0.0)
+		var rpg = get_parent().get("rpg")
+		var gear_armor := float(rpg.gear_stat("defense")) if rpg != null else 0.0
+		if rpg != null and rpg.equipped.has("shield"):
+			rpg.train("Shielding", 1.0)
+		var total_reduction := gear_armor + armor_rating + (0.35 if bulwark_timer > 0.0 else 0.0)
 		total_reduction = clampf(total_reduction, 0.0, 0.75)
 		if total_reduction > 0.0:
 			final_amount = maxi(1, int(round(amount * (1.0 - total_reduction))))
 	hp = maxi(0, hp - final_amount)
 	last_damage_taken = final_amount
+	var expedition = get_parent().get("expedition")
+	if expedition != null and expedition.has_method("on_player_hit"):
+		expedition.on_player_hit()
 	hit_flash_time = 0.15
 	get_tree().call_group("combat_feedback", "impact", true)
 	invulnerability = 0.65
@@ -505,16 +607,17 @@ func _draw() -> void:
 		var flash_strength := clampf(hit_flash_time / 0.15, 0.0, 1.0)
 		var heaviness := clampf(float(last_damage_taken) / 40.0, 0.35, 1.0)
 		tint = tint.lerp(Color(1.0, 0.32, 0.28), flash_strength * 0.8 * heaviness)
+	var visual_left: bool = attack_facing.x < -0.05 if appearance_animation.attacking else appearance_animation.faces_left
 	var role_visual := evolution_id if evolution_id != "" else ""
 	var class_size := 94.0 if class_id != "knight" else 98.0
 	if appearance_animation.uses_sheet():
-		appearance_animation.draw_actor(self, class_size, facing.x < -0.05, velocity.length() > 5.0,
+		appearance_animation.draw_actor(self, class_size, visual_left, animation_velocity.length() > 5.0,
 			invulnerability > 0.0 and dodge_time <= 0.0, hp <= 0, tint)
 	elif class_id == "blade":
-		blade_animation.draw_actor(self, class_size, facing.x < -0.05, velocity.length() > 5.0,
+		blade_animation.draw_actor(self, class_size, visual_left, animation_velocity.length() > 5.0,
 			invulnerability > 0.0 and dodge_time <= 0.0, hp <= 0, tint, role_visual)
 	else:
-		class_animation.draw_actor(self, class_size, facing.x < -0.05, velocity.length() > 5.0,
+		class_animation.draw_actor(self, class_size, visual_left, animation_velocity.length() > 5.0,
 			invulnerability > 0.0 and dodge_time <= 0.0, hp <= 0, tint, role_visual)
 	if hp <= 0:
 		return
@@ -537,14 +640,13 @@ func _draw() -> void:
 	if dodge_time > 0.0:
 		draw_arc(Vector2.ZERO, 27, 0, TAU, 24, Color("a8d6c5"), 2, true)
 	if swing_time > 0.0:
-		var sweep := facing.angle() - 1.1 + (1.0 - swing_time / 0.16) * 2.2
+		var sweep := attack_facing.angle() - 1.1 + (1.0 - swing_time / 0.16) * 2.2
 		var arc_col := Color("f0dfac") if class_id != "mage" else Color("d88cf2")
 		draw_arc(Vector2.ZERO, 65, sweep - 0.7, sweep, 16, Color(arc_col.r, arc_col.g, arc_col.b, 0.25), 12, true)
 		draw_arc(Vector2.ZERO, 65, sweep - 0.7, sweep, 16, arc_col, 3, true)
 	# Polish: cooldown arc indicators (ability + dodge)
 	if special_cooldown > 0.0 and hp > 0:
-		var cdata_cd: Dictionary = GoblinData.CLASSES[class_id]
-		var max_cd: float = float(cdata_cd["special_cooldown"])
+		var max_cd: float = get_special_cooldown()
 		var ratio := special_cooldown / max_cd
 		var arc_angle := TAU * (1.0 - ratio)
 		draw_arc(Vector2(0, 8), 30.0, -PI / 2, -PI / 2 + arc_angle, 24, Color("d4a0e8", 0.45), 2.0, true)

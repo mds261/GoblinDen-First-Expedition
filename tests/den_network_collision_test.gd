@@ -26,11 +26,11 @@ func run_checks() -> void:
 		enemy.set_physics_process(false)
 	game.player.set_physics_process(false)
 	var cave = game.get_node("Cave")
-	check(game.rooms.size() == 10, "Seven existing rooms plus three den rooms")
+	check(game.rooms.size() == 16, "Existing areas plus three quest dungeon floors")
 	var station_count := 0
 	for room in game.rooms:
 		for child in room.get_children():
-			if child.has_method("set_collision_active"):
+			if child.get_script() == load("res://scripts/painted_prop.gd"):
 				station_count += 1
 	check(station_count == 8, "All eight stations exist exactly once")
 	for room_id in Layout.PORTALS:
@@ -49,10 +49,10 @@ func run_checks() -> void:
 		await physics_frame
 		check(point_blocked(game, station["pos"]), "Active station has a physical footprint")
 		check(not point_blocked(game, game.player.position), "Station interaction approach stays walkable")
-		check(game.contextual_hint().begins_with("E "), "Every station exposes an interaction")
+		check(not game.interaction_feedback.choose(game.interaction_feedback.candidates()).is_empty(), "Every station exposes an interaction")
 		for room in game.rooms:
 			for prop in room.get_children():
-				if prop.has_method("set_collision_active"):
+				if prop.get_script() == load("res://scripts/painted_prop.gd"):
 					check((prop.obstacle.collision_layer == 1) == (room == game.rooms[game.current_room]), "Hidden room station colliders are disabled")
 	game.enter_room(0, game.FORGE + Vector2(0, 58))
 	game.scrap = 100

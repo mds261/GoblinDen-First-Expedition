@@ -2,6 +2,8 @@ extends Node2D
 ## Painted backdrop, physical perimeter, shadow ambush alcoves, and optional
 ## cave chokepoint pillars for higher raid campaigns (Sections 3 & 8).
 
+const Starting = preload("res://scripts/starting_caves.gd")
+const DungeonLayout = preload("res://scripts/dungeon_layout.gd")
 const BACKGROUND = preload("res://assets/cave.png")
 const ROOTVEIN_BACKGROUND = preload("res://assets/cave_rootvein_grotto.png")
 const CAVE_MOUTH_BACKGROUND = preload("res://assets/cave_mouth.png")
@@ -13,12 +15,13 @@ const BACKGROUNDS: Array[Texture2D] = [
 	THORNWOOD_EXPANSE_BACKGROUND,
 	preload("res://assets/den_treasury.png"),
 	preload("res://assets/den_armory.png"),
-	preload("res://assets/den_strategy.png")
+	preload("res://assets/den_strategy.png"),
+	THORNWOOD_BACKGROUND, THORNWOOD_BACKGROUND, ROOTVEIN_BACKGROUND
 ]
 const ROOM_TINTS: Array[Color] = [
 	Color(1.0, 0.97, 0.88), Color(0.82, 0.91, 1.0), Color(1.0, 0.84, 0.82),
 	Color(0.88, 1.0, 0.94), Color(1.0, 1.0, 0.98), Color(1.0, 1.0, 1.0),
-	Color(1.0, 1.0, 1.0), Color.WHITE, Color.WHITE, Color.WHITE
+	Color(1.0, 1.0, 1.0), Color.WHITE, Color.WHITE, Color.WHITE, Color(1.0, 1.0, 0.90), Color(0.65, 0.8, 0.65), Color(0.65, 0.7, 0.95)
 ]
 const STANDARD_WORLD_SIZE := Vector2(1152, 720)
 const EXPANSE_WORLD_SIZE := Vector2(2304, 1440)
@@ -88,6 +91,7 @@ func _set_expanse_obstacles_active(active: bool) -> void:
 func _configure_world_perimeter(world_size: Vector2) -> void:
 	for body in perimeter_bodies:
 		if is_instance_valid(body):
+			body.collision_layer = 0
 			body.queue_free()
 	perimeter_bodies.clear()
 	var floor_bounds := Rect2(Vector2.ONE * PERIMETER_THICKNESS, world_size - Vector2.ONE * PERIMETER_THICKNESS * 2.0)
@@ -114,13 +118,13 @@ func _configure_world_perimeter(world_size: Vector2) -> void:
 
 func configure_room(index: int) -> void:
 	room_index = index
-	_configure_world_perimeter(EXPANSE_WORLD_SIZE if room_index == EXPANSE_ROOM_INDEX else STANDARD_WORLD_SIZE)
+	_configure_world_perimeter(world_size_for_room())
 	_set_expanse_obstacles_active(room_index == EXPANSE_ROOM_INDEX)
 	_rebuild_navigation()
 	queue_redraw()
 
 func update_chokepoints(active: bool) -> void:
-	chokepoints_active = active and room_index > 0 and room_index <= 2
+	chokepoints_active = false # The opening now uses permanent natural tunnel geometry.
 	for pillar in pillar_bodies:
 		pillar.collision_layer = 1 if chokepoints_active else 0
 		pillar.collision_mask = 2 if chokepoints_active else 0
@@ -140,8 +144,10 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	if room_index==0 or DungeonLayout.is_dungeon(room_index):
+		return
 	var safe_index := clampi(room_index, 0, BACKGROUNDS.size() - 1)
-	var world_size := EXPANSE_WORLD_SIZE if room_index == EXPANSE_ROOM_INDEX else STANDARD_WORLD_SIZE
+	var world_size := world_size_for_room()
 	draw_texture_rect(BACKGROUNDS[safe_index], Rect2(Vector2.ZERO, world_size), false, ROOM_TINTS[safe_index])
 	# Shadow ambush alcoves in combat rooms (Section 3: win through darkness & ambushes)
 	if room_index > 0 and room_index <= 2:
@@ -251,7 +257,7 @@ func _draw_ambient_particles() -> void:
 			draw_circle(ray_dust, 1.4, Color(1.0, 0.92, 0.62, 0.18))
 
 func _draw_outdoor_ambience() -> void:
-	var world_size := EXPANSE_WORLD_SIZE if room_index == EXPANSE_ROOM_INDEX else STANDARD_WORLD_SIZE
+	var world_size := world_size_for_room()
 	# Fireflies hug the shaded lower edge while windblown leaves cross the clearing.
 	var firefly_count := 34 if room_index == EXPANSE_ROOM_INDEX else 16
 	for index in range(firefly_count):
@@ -271,7 +277,7 @@ func _draw_outdoor_ambience() -> void:
 		]), leaf_color)
 
 func _rebuild_navigation() -> void:
-	var world_size := EXPANSE_WORLD_SIZE if room_index == EXPANSE_ROOM_INDEX else STANDARD_WORLD_SIZE
+	var world_size := world_size_for_room()
 	var columns := int(world_size.x / 24.0)
 	var rows := int(world_size.y / 24.0)
 	navigation.region = Rect2i(0, 0, columns, rows)
@@ -297,6 +303,14 @@ func _rebuild_navigation() -> void:
 			var blocked := point.x < 106 or point.x > world_size.x - 106 or point.y < 126 or point.y > world_size.y - 126
 			if room_index in [DenLayout.TREASURY, DenLayout.ARMORY, DenLayout.STRATEGY]:
 				blocked = blocked or not DenLayout.ROOM_FLOOR.grow(-32.0).has_point(point)
+			if room_index==0:
+				blocked = not Starting.walkable(point)
+				for clearance in [Vector2(-22,-22),Vector2(22,-22),Vector2(-22,22),Vector2(22,22)]:
+					blocked = blocked or not Starting.walkable(point+clearance)
+			if DungeonLayout.is_dungeon(room_index):
+				blocked = blocked or not DungeonLayout.walkable(point, room_index)
+				for clearance in [Vector2(-22,-22),Vector2(22,-22),Vector2(-22,22),Vector2(22,22)]:
+					blocked = blocked or not DungeonLayout.walkable(point+clearance,room_index)
 			var near_bridge := room_index == EXPANSE_ROOM_INDEX and Rect2(900, 525, 270, 110).has_point(point * ExpanseGeometry.SOURCE_SIZE / EXPANSE_WORLD_SIZE)
 			var obstacles := bridge_navigation_obstacles if near_bridge else navigation_obstacles
 			for polygon in obstacles:
@@ -321,7 +335,7 @@ func route_direction(origin: Vector2, destination: Vector2) -> Vector2:
 	return Vector2.ZERO
 
 func _nearest_open_cell(point: Vector2) -> Vector2i:
-	var world_size := EXPANSE_WORLD_SIZE if room_index == EXPANSE_ROOM_INDEX else STANDARD_WORLD_SIZE
+	var world_size := world_size_for_room()
 	var max_x := int(world_size.x / 24.0) - 5
 	var max_y := int(world_size.y / 24.0) - 5
 	var cell := Vector2i(clampi(int(point.x / 24), 4, max_x), clampi(int(point.y / 24), 5, max_y))
@@ -338,3 +352,10 @@ func _nearest_open_cell(point: Vector2) -> Vector2i:
 					distance = d
 					best = candidate
 	return best
+
+func world_size_for_room() -> Vector2:
+	if room_index==0:
+		return Starting.SIZE
+	if DungeonLayout.is_dungeon(room_index):
+		return DungeonLayout.SIZE
+	return EXPANSE_WORLD_SIZE if room_index == EXPANSE_ROOM_INDEX else STANDARD_WORLD_SIZE

@@ -15,7 +15,7 @@ func _ready() -> void:
 		voice.volume_db = -17.0
 		add_child(voice)
 		voices.append(voice)
-	for cue in ["hit", "hurt", "swing", "dodge"]:
+	for cue in ["hit", "hurt", "swing", "dodge", "interact"]:
 		sounds[cue] = _make_sound(cue)
 	var layer := CanvasLayer.new()
 	add_child(layer)
@@ -73,9 +73,10 @@ func _make_sound(cue: String) -> AudioStreamWAV:
 	var phase := 0.0
 	for index in range(count):
 		var t := float(index) / count
-		var frequency := 160.0 if cue in ["hit", "hurt"] else 500.0
+		var frequency := 160.0 if cue in ["hit", "hurt"] else (720.0 if cue == "interact" else 500.0)
 		phase += TAU * frequency * (1.0 - t * 0.7) / 22050.0
-		var sample := (sin(phase) * 0.65 + rng.randf_range(-1.0, 1.0) * 0.35) * pow(1.0 - t, 3.0) * minf(t * 30.0, 1.0)
+		var noise := 0.04 if cue == "interact" else 0.35
+		var sample := (sin(phase) * (1.0 - noise) + rng.randf_range(-1.0, 1.0) * noise) * pow(1.0 - t, 3.0) * minf(t * 30.0, 1.0)
 		data.encode_s16(index * 2, int(sample * 24000.0))
 	stream.data = data
 	return stream

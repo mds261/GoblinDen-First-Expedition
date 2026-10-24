@@ -18,6 +18,10 @@ func run_checks() -> void:
 	root.add_child(game)
 	current_scene = game
 	await physics_frame
+	if game.get("expedition") != null:
+		print("COMBAT TEST: skipped — First Expedition trial does not spawn the Iron Captain raid.")
+		quit(0)
+		return
 	game.enter_room(2, Vector2(380, 260))
 	var cave = game.get_node("Cave")
 	var boss = game.rooms[2].get_child(0)

@@ -9,6 +9,10 @@ var completions := 0
 var upgrades := {"edge":0,"ward":0,"pouch":0}
 var last_summary: Dictionary = {}
 var welcomed := false
+var rite_id := "blade"
+var combo := 0
+var best_combo := 0
+var hearth_bloom := 0.0
 var ui: CanvasLayer
 var scenery: Node2D
 var save_clock := 0.0
@@ -32,7 +36,7 @@ func _ready() -> void:
 		ui.announce("HEARTH HALL", "A fire worth coming home to")
 
 func snapshot() -> Dictionary:
-	return {"version":1,"active":active.duplicate(true),"serial":serial,"completions":completions,"upgrades":upgrades.duplicate(),"last_summary":last_summary.duplicate(true),"welcomed":welcomed}
+	return {"version":2,"active":active.duplicate(true),"serial":serial,"completions":completions,"upgrades":upgrades.duplicate(),"last_summary":last_summary.duplicate(true),"welcomed":welcomed,"rite_id":rite_id,"best_combo":best_combo}
 
 func restore(state: Dictionary) -> void:
 	active = state.get("active",{}).duplicate(true)
@@ -41,6 +45,9 @@ func restore(state: Dictionary) -> void:
 	upgrades.merge(state.get("upgrades",{}),true)
 	last_summary = state.get("last_summary",{}).duplicate(true)
 	welcomed = bool(state.get("welcomed",false))
+	rite_id = str(state.get("rite_id","blade"))
+	best_combo = int(state.get("best_combo",0))
+	combo = 0
 
 func moss_position() -> Vector2:
 	var npc = game.rpg.npc_nodes.get("den_keeper")
@@ -49,11 +56,35 @@ func moss_position() -> Vector2:
 func home() -> bool:
 	return game.current_room == 0 and game.player.position.distance_to(moss_position()) < 115
 
+func weather_profile() -> Dictionary:
+	if active.is_empty() or active.get("claimed",false) or game.current_room == 0:
+		return Data.weather_profile("Clear")
+	return Data.weather_profile(str(active.get("weather","Clear")))
+
+func encounter_weather() -> Dictionary:
+	if active.is_empty() or active.get("claimed",false):
+		return Data.weather_profile("Clear")
+	return Data.weather_profile(str(active.get("weather","Clear")))
+
+func choose_rite(class_id: String) -> bool:
+	var allowed := false
+	for rite in Data.RITES:
+		if rite.id == class_id:
+			allowed = true
+	if not allowed or not game.is_den_room() or game.player.hp <= 0:
+		return false
+	rite_id = class_id
+	game.select_goblin_class(class_id)
+	game.audio_system.play_sfx("level_up")
+	return true
+
 func begin(kind: int, seed_override: int = -1) -> bool:
 	if kind < 0 or kind >= Data.CONTRACTS.size() or not home() or not active.is_empty() and not active.get("claimed",false):
 		return false
 	clear_encounters()
 	serial += 1
+	combo = 0
+	hearth_bloom = 0.0
 	var chosen_seed := seed_override if seed_override >= 0 else 68471 + serial*7919
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--expedition-seed="):
@@ -65,7 +96,8 @@ func begin(kind: int, seed_override: int = -1) -> bool:
 	populate()
 	game._auto_save()
 	ui.close()
-	ui.announce(Data.CONTRACTS[kind].name.to_upper(), "Follow the eastern tunnels into Thornwood")
+	var weather_line: String = Data.weather_profile(str(active.weather)).blurb
+	ui.announce(Data.CONTRACTS[kind].name.to_upper(), "Follow the eastern tunnels into Thornwood · %s"%weather_line)
 	game.refresh_objective()
 	return true
 
@@ -82,12 +114,17 @@ func spawn(id: String, room: int, at: Vector2, role: String, elite: bool = false
 	if id in active.defeated:
 		return
 	var hp := 105 if elite else 55 + mini(completions,4)*8
-	game.spawn_enemy_ext(room,at,"THORNWOOD WATCHER" if elite else "TRAIL " + role.to_upper(),hp,82 if elite else 92,12 if elite else 7,7 if elite else 3,role,25,"","",true)
+	var title := "THORNWOOD WATCHER" if elite else "TRAIL " + role.to_upper()
+	game.spawn_enemy_ext(room,at,title,hp,82 if elite else 92,12 if elite else 7,7 if elite else 3,role,25,"","",true)
 	var enemy = game.rooms[room].get_child(game.rooms[room].get_child_count()-1)
 	enemy.set_meta("expedition_id",id)
+	enemy.set_meta("expedition_elite",elite)
 	enemy.remove_meta("opening_key")
 	enemy.dungeon_awareness = Awareness.new()
 	enemy.dungeon_awareness.configure(enemy)
+	var profile := encounter_weather()
+	enemy.dungeon_awareness.notice_scale = float(profile.notice)
+	enemy.speed = float(enemy.speed) * float(profile.move)
 
 func populate() -> void:
 	clear_encounters()
@@ -122,7 +159,18 @@ func record_defeat(enemy: Node2D) -> void:
 		return
 	active.defeated.append(id)
 	active.kills += 1
+	combo += 1
+	best_combo = maxi(best_combo, combo)
+	if id=="tunnel_watch":
+		ui.announce("FIRST BLOOD", "The mouth of the den is yours. Daylight waits east.")
+	elif bool(enemy.get_meta("expedition_elite",false)):
+		ui.announce("THE WATCHER FALLS", "Its cache is unguarded. Take it, or leave the greed behind.")
+	elif combo>=3:
+		ui.announce("BLOOD IN THE LEAVES", "A %d-strike streak. Do not let them recover."%combo)
 	update_ready()
+
+func on_player_hit() -> void:
+	combo = 0
 
 func update_ready() -> void:
 	if active.is_empty():
@@ -242,7 +290,9 @@ func claim() -> bool:
 	var xp := int(contract.xp) + (45 if active.bonus else 0)
 	active.claimed = true
 	completions += 1
-	last_summary = {"name":contract.name,"seconds":active.elapsed,"kills":active.kills,"resources":active.resources,"discoveries":active.discoveries.duplicate(),"scrap":reward,"xp":xp,"seed":active.seed}
+	hearth_bloom = 12.0
+	combo = 0
+	last_summary = {"name":contract.name,"seconds":active.elapsed,"kills":active.kills,"resources":active.resources,"discoveries":active.discoveries.duplicate(),"scrap":reward,"xp":xp,"seed":active.seed,"weather":active.weather}
 	# Currency, claimed flag and progression share one atomic save file.
 	game.scrap += reward
 	game.gain_xp(xp)
@@ -258,6 +308,7 @@ func abandon() -> bool:
 		return false
 	clear_encounters()
 	active = {}
+	combo = 0
 	game._auto_save()
 	ui.open("board")
 	return true
@@ -297,6 +348,9 @@ func target_point() -> Vector2:
 			return active.sites[i]
 	return Vector2(700,350)
 
+func paces() -> int:
+	return int(game.player.position.distance_to(target_point()) / 10.0)
+
 func objective_text() -> String:
 	if active.is_empty() or active.claimed:
 		return "Speak to Moss · Choose your next expedition [J]"
@@ -320,11 +374,22 @@ func on_room_entered() -> void:
 				if enemy.position.distance_to(floor_point)>18:
 					enemy.position = floor_point
 					enemy.dungeon_awareness.configure(enemy)
-		ui.announce(game.room_label.text.to_upper(), "The trail is yours to choose" if game.current_room!=0 else "The fire is still burning")
+					var profile := encounter_weather()
+					enemy.dungeon_awareness.notice_scale = float(profile.notice)
+		var heading: String = str(game.room_label.text).to_upper()
+		var line := "The fire is still burning"
+		if game.current_room==5:
+			line = "The hollow remembers every rider who passed"
+		elif game.current_room==6:
+			line = str(active.get("weather","Clear"))+" over Thornwood · "+str(weather_profile().blurb)
+		elif game.current_room!=0:
+			line = "Stay low. Humans still mark these stones."
+		ui.announce(heading, line)
 
 func _process(delta: float) -> void:
 	if get_tree().paused or ui.overlay.visible:
 		return
+	hearth_bloom = maxf(0.0, hearth_bloom-delta)
 	if not active.is_empty() and not active.claimed:
 		active.elapsed += delta
 		save_clock += delta

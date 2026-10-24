@@ -13,6 +13,19 @@ const UPGRADES := [
 	{"id":"ward", "name":"Training · Hardy constitution", "description":"+10 maximum health. Three ranks.", "cost":28},
 	{"id":"pouch", "name":"Shaman · Deep medicine pouch", "description":"Carry one more healing potion. Two ranks.", "cost":28}
 ]
+const WEATHER := {
+	"Clear": {"notice":1.08, "move":1.0, "arrow":1.0, "conceal":false, "blurb":"Open sky. Watchers see farther."},
+	"Mist": {"notice":0.66, "move":0.97, "arrow":0.9, "conceal":true, "blurb":"Stand still in the fog and the trail forgets you."},
+	"Rain": {"notice":0.86, "move":0.93, "arrow":0.78, "conceal":false, "blurb":"Arrows drag. Footing slips. The woods hiss."}
+}
+const RITES := [
+	{"id":"blade", "title":"Blade", "line":"Cut the trail. Bleed stacks, a vanishing dodge, and a flurry when the opening appears."},
+	{"id":"archer", "title":"Archer", "line":"Hunt from the dark. Poison shafts, kiting speed, and snares in the leaves."},
+	{"id":"knight", "title":"Knight", "line":"Hold the choke. Armor, knockback, and a bulwark that turns a charge."},
+	{"id":"mage", "title":"Mage", "line":"Hex the woods. Fragile, bright, and cruel at range."}
+]
+static func weather_profile(name: String) -> Dictionary:
+	return WEATHER.get(name, WEATHER.Clear)
 static func generate(kind: int, seed_value: int, serial: int) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value

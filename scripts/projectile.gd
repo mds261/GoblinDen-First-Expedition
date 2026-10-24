@@ -2,6 +2,7 @@ extends Node2D
 ## Ranged projectile for Archer Goblin arrows, Mage Goblin hex/fire bolts,
 ## Goblin Ally shots, and Human Ranger/Mage/Priest attacks.
 
+const FloatingText = preload("res://scripts/floating_text.gd")
 const HitSpark = preload("res://scripts/hit_spark.gd")
 
 var velocity := Vector2.RIGHT * 420.0
@@ -63,17 +64,24 @@ func _apply_to_enemy(primary_enemy: Node2D) -> void:
 				continue
 			if enemy.global_position.distance_to(global_position) <= splash_radius:
 				var mult := 1.0 if enemy == primary_enemy else 0.65
-				enemy.take_damage(maxi(1, int(damage * mult)), dir * 0.5)
+				var dealt := maxi(1, int(damage * mult))
+				enemy.take_damage(dealt, dir * 0.5)
+				_show_damage(enemy, dealt)
 				if enemy.has_method("apply_status"):
 					enemy.apply_status(bleed_dps, poison_dps, slow_time)
 	else:
 		primary_enemy.take_damage(damage, dir * 0.6)
+		_show_damage(primary_enemy, damage)
 		if primary_enemy.has_method("apply_status"):
 			primary_enemy.apply_status(bleed_dps, poison_dps, slow_time)
 	if lifesteal_ratio > 0.0 and is_instance_valid(owner_actor) and owner_actor.get("hp") != null:
 		owner_actor.hp = mini(owner_actor.max_hp, owner_actor.hp + maxi(1, int(damage * lifesteal_ratio)))
 		if owner_actor.has_signal("health_changed"):
 			owner_actor.health_changed.emit(owner_actor.hp, owner_actor.max_hp)
+
+func _show_damage(enemy: Node2D, amount: int) -> void:
+	if is_instance_valid(owner_actor) and owner_actor.is_in_group("player"):
+		FloatingText.spawn_damage(enemy.get_parent(), enemy.global_position + Vector2(0, -20), amount, false)
 
 func _detonate() -> void:
 	hit_done = true
@@ -85,7 +93,11 @@ func _detonate() -> void:
 func _draw() -> void:
 	var angle := velocity.angle()
 	draw_set_transform(Vector2.ZERO, angle, Vector2.ONE)
-	if style == "arrow" or style == "human_arrow":
+	if style == "cursed_coin":
+		draw_circle(Vector2.ZERO, 8.0, Color("d49d3a"))
+		draw_arc(Vector2.ZERO, 6.0, 0, TAU, 16, Color("fff0a5"), 2, true)
+		draw_line(Vector2(-3,-3),Vector2(3,3),Color("8d5c29"),2,true)
+	elif style == "arrow" or style == "human_arrow":
 		var shaft_color := Color("a9d67c") if style == "arrow" else Color("e6c88a")
 		var tip_color := Color("6bd968") if poison_dps > 0 else Color("dcd9ce")
 		draw_line(Vector2(-14, 0), Vector2(10, 0), shaft_color, 2.5, true)

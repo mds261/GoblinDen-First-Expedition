@@ -181,7 +181,9 @@ func run_checks() -> void:
 	fresh.cycle_class_evolution(false)
 	check(fresh.player.evolution_id == "shaman", "Mage evolves into Shaman")
 	# 2. Story-driven human loot & Treasure Room equipping
-	fresh._on_loot_and_xp_collected("captain_sword", 0)
+	var claimed_relic := {"id":"expansion_relic","name":"Fallen captain","room":fresh.current_room,"position":fresh.player.position,"items":[{"id":"captain_sword","count":1}],"scrap":0,"remaining":1800.0}
+	fresh.rpg.monster_corpses.append(claimed_relic)
+	check(fresh.rpg.claim_monster_item(claimed_relic,0),"Story relic is explicitly claimed from its owner")
 	fresh.enter_room(fresh.DenLayout.TREASURY, fresh.TREASURE_ROOM)
 	fresh.interact()
 	check(fresh.player.equipped_loot_id == "captain_sword", "Treasure Room equips Knight Captain's Sword")

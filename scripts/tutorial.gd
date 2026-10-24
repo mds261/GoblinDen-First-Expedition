@@ -3,7 +3,7 @@ extends RefCounted
 ## Tracks which hints have been shown via a meta dict on the game node.
 
 const HINTS := {
-	"first_spawn": "Welcome to your Goblin Den! Use WASD to move. Use [E] at passages to visit the Treasure Room, Armory and Strategy Room.",
+	"first_spawn": "Wake by the fire. Choose a class rite, speak to Moss, and take your first expedition into Thornwood.",
 	"near_forge": "The FORGE reforges your blade for more damage. Spend scrap to power up!",
 	"near_rest": "Rest at the FIRE to restore HP, revive allies, and refill Bloodmoss Potions.",
 	"near_training": "The TRAINING PIT lets you evolve into advanced specializations at Level 2+.",
@@ -17,7 +17,7 @@ const HINTS := {
 	"first_dodge": "Press [SHIFT] to dodge — you get brief invulnerability during the dodge burst.",
 	"first_evolution": "Press [C] to cycle class evolutions once you reach Level 2! Each evolution has unique powers.",
 	"first_potion": "Press [F] to drink a Bloodmoss Potion — restores HP and coats weapons in venom.",
-	"first_combat_room": "Head through the right gate to fight! Use shadow alcoves for ambush crits.",
+	"first_combat_room": "Follow the eastern tunnels toward daylight. Side chambers hold optional dangers.",
 	"first_loot": "Stolen human weapons have stat tradeoffs. Press [I] to cycle equipped gear.",
 	"first_codex": "Press [TAB] to open the Tribe Codex — your full status overview.",
 	"first_scrap": "Scrap is your currency. Collect it from fallen enemies and spend it at Den facilities.",

@@ -28,21 +28,18 @@ var dot_timer: float = 0.0
 var dot_tick: float = 0.0
 var appearance_animation = EnemyAnimation.new()
 var animation_time: float = 0.0
+var dungeon_awareness: RefCounted
 var target: Node2D
 var death_time: float = 0.0
 
 func configure(kind: String) -> void:
 	minion_kind = kind
-	if kind == "wolf":
-		display_name = "PACK WOLF"
-		max_hp = 105
-		speed = 170.0
-		damage = 16
-	else:
-		display_name = "ROOTVEIN SPIDERLING"
-		max_hp = 58
-		speed = 162.0
-		damage = 9
+	var definition: Dictionary = preload("res://scripts/design_catalog.gd").record("monsters", "minion_" + kind)
+	if not definition.is_empty():
+		display_name = str(definition.name)
+		max_hp = int(definition.hp)
+		speed = float(definition.speed)
+		damage = int(definition.damage)
 	hp = max_hp
 
 func _ready() -> void:
@@ -77,6 +74,10 @@ func _physics_process(delta: float) -> void:
 	if not is_instance_valid(target) or target.hp <= 0:
 		target = get_tree().get_first_node_in_group("player")
 	if not is_instance_valid(target) or target.hp <= 0:
+		return
+	if dungeon_awareness!=null and not dungeon_awareness.step(self,delta):
+		move_and_slide()
+		queue_redraw()
 		return
 	if stun_timer > 0.0:
 		velocity = knockback
@@ -122,6 +123,8 @@ func show_floating_text(_words: String) -> void:
 	pass
 
 func take_damage(amount: int, direction: Vector2 = Vector2.ZERO) -> void:
+	if dungeon_awareness!=null and hp>0:
+		dungeon_awareness.alert(self)
 	if hp <= 0:
 		return
 	hp = maxi(0, hp - amount)

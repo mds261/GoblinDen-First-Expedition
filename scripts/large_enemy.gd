@@ -28,6 +28,7 @@ var windup_total: float = 0.65
 var cooldown_length: float = 1.1
 var art_size: float = 178.0
 
+var dungeon_awareness: RefCounted
 var target: Node2D
 var appearance_animation = EnemyAnimation.new()
 var animation_time: float = 0.0
@@ -52,40 +53,16 @@ var pack_cooldown: float = 0.4
 
 func configure(kind: String) -> void:
 	enemy_kind = kind
-	match enemy_kind:
-		"spider":
-			display_name = "ROOTVEIN GIANT SPIDER"
-			max_hp = 320
-			speed = 148.0
-			damage = 24
-			scrap_reward = 10
-			xp_reward = 150
-			attack_radius = 82.0
-			max_windup = 0.48
-			cooldown_length = 0.9
-			art_size = 184.0
-		"ogre":
-			display_name = "CAVE-MOUTH OGRE"
-			max_hp = 480
-			speed = 82.0
-			damage = 38
-			scrap_reward = 14
-			xp_reward = 210
-			attack_radius = 108.0
-			max_windup = 1.12
-			cooldown_length = 1.5
-			art_size = 188.0
-		"wolf_rider":
-			display_name = "THORNWOOD WOLF RIDER"
-			max_hp = 370
-			speed = 182.0
-			damage = 30
-			scrap_reward = 12
-			xp_reward = 180
-			attack_radius = 88.0
-			max_windup = 0.58
-			cooldown_length = 0.82
-			art_size = 196.0
+	var definition: Dictionary = preload("res://scripts/design_catalog.gd").record("monsters", kind)
+	if not definition.is_empty():
+		display_name = str(definition.name)
+		max_hp = int(definition.hp)
+		speed = float(definition.speed)
+		damage = int(definition.damage)
+		scrap_reward = int(definition.scrap)
+		xp_reward = int(definition.xp)
+		for field in ["attack_radius", "max_windup", "cooldown_length", "art_size"]:
+			set(field, float(definition[field]))
 	hp = max_hp
 	windup_total = max_windup
 
@@ -133,6 +110,10 @@ func _physics_process(delta: float) -> void:
 	if not is_instance_valid(target) or target.hp <= 0:
 		target = get_tree().get_first_node_in_group("player")
 	if not is_instance_valid(target) or target.hp <= 0:
+		return
+	if dungeon_awareness!=null and not dungeon_awareness.step(self,delta):
+		move_and_slide()
+		queue_redraw()
 		return
 	_process_signature_abilities()
 	if windup > 0.0:
@@ -230,6 +211,9 @@ func _spawn_minion(kind: String, point: Vector2) -> void:
 	collision.shape = shape
 	minion.add_child(collision)
 	get_parent().add_child(minion)
+	if dungeon_awareness!=null:
+		minion.dungeon_awareness = preload("res://scripts/dungeon_awareness.gd").new()
+		minion.dungeon_awareness.configure(minion)
 
 func _process_damage_over_time(delta: float) -> void:
 	if dot_timer <= 0.0:
@@ -290,6 +274,8 @@ func show_floating_text(words: String) -> void:
 	status_text_time = 0.85
 
 func take_damage(amount: int, direction: Vector2 = Vector2.ZERO) -> void:
+	if dungeon_awareness!=null and hp>0:
+		dungeon_awareness.alert(self)
 	if hp <= 0:
 		return
 	hp = maxi(0, hp - amount)

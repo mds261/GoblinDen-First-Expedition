@@ -9,6 +9,7 @@ const SHEETS := {
 const WALK_FPS := {"archer": 10.0, "knight": 8.0, "mage": 9.0}
 var class_id: String = "archer"
 var walk_time: float = 0.0
+var idle_time: float = 0.0
 var attack_elapsed: float = 0.0
 var attack_duration: float = 0.4
 var attacking: bool = false
@@ -30,6 +31,7 @@ func start_attack(duration: float = 0.4) -> void:
 	attacking = true
 
 func update(delta: float, moving: bool, alive: bool, movement_rate: float = 1.0) -> void:
+	idle_time += delta
 	if not alive:
 		attacking = false
 		return
@@ -62,7 +64,7 @@ func draw_actor(canvas: Node2D, size: float, faces_left: bool, moving: bool,
 		color = color.lerp(Color(1.6, 1.3, 1.1, color.a), 0.5)
 	if dead:
 		color = Color(0.45, 0.43, 0.4, 0.75)
-	canvas.draw_set_transform(Vector2(0, 10 if not dead else 16), -1.35 if dead else 0.0, Vector2(direction, 1.0))
+	canvas.draw_set_transform(Vector2(0, (10.0 + (sin(idle_time * 2.6) * 0.65 if not moving and not attacking else 0.0)) if not dead else 16.0), -1.35 if dead else 0.0, Vector2(direction, 1.0))
 	canvas.draw_texture_rect_region(SHEETS[class_id], Rect2(-anchor * scale_factor, region.size * scale_factor), region, color)
 	# Equipment is already painted into the frames. Keep evolution effects subtle.
 	if not dead and role_tag == "shaman":

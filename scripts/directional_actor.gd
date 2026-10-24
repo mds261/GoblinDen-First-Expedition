@@ -21,6 +21,7 @@ var class_id: String = "blade"
 var visual_id: String = "blade"
 var direction: String = "side"
 var walk_time: float = 0.0
+var idle_time: float = 0.0
 var attacking: bool = false
 var attack_elapsed: float = 0.0
 var attack_duration: float = 0.4
@@ -53,16 +54,17 @@ func select_direction(movement: Vector2) -> void:
 		faces_left = movement.x < 0.0
 
 func update(delta: float, movement: Vector2, alive: bool, movement_rate: float = 1.0) -> void:
+	idle_time += delta
 	if not alive:
 		attacking = false
 		return
 	var moving := movement.length() > 5.0
-	if not attacking:
-		select_direction(movement)
 	if attacking:
 		attack_elapsed += delta
 		if attack_elapsed >= attack_duration:
 			attacking = false
+	if not attacking:
+		select_direction(movement)
 	if moving and not attacking:
 		walk_time += delta * clampf(movement_rate, 0.4, 2.8)
 	elif not moving:
@@ -102,7 +104,7 @@ func draw_actor(canvas: Node2D, size: float, attack_faces_left: bool, moving: bo
 		color = color.lerp(Color(1.6, 1.3, 1.1, color.a), 0.5)
 	if dead:
 		color = Color(0.45, 0.43, 0.4, 0.75)
-	canvas.draw_set_transform(Vector2(0, 10 if not dead else 16), -1.35 if dead else 0.0, Vector2(flip, 1.0))
+	canvas.draw_set_transform(Vector2(0, (10.0 + (sin(idle_time * 2.6) * 0.65 if not moving and not attacking else 0.0)) if not dead else 16.0), -1.35 if dead else 0.0, Vector2(flip, 1.0))
 	if data.has("clips"):
 		preload("res://scripts/atlas_clip.gd").draw_frame(canvas, SHEETS[visual_id], region, anchor, factor, color, data["clips"][frame])
 	else:

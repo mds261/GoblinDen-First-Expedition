@@ -25,6 +25,7 @@ var appearance_animation = EnemyAnimation.new()
 var animation_time: float = 0.0
 var hp: int = 100
 var target: Node2D
+var dungeon_awareness: RefCounted
 var cooldown: float = 0.8
 var support_cooldown: float = 2.4
 var windup: float = 0.0
@@ -105,6 +106,12 @@ func _physics_process(delta: float) -> void:
 		queue_redraw()
 		return
 	# Stealth check: if player is hidden in shadow ambush alcove and far away, enemies hesitate
+	if dungeon_awareness != null and not dungeon_awareness.step(self,delta):
+		velocity += knockback
+		knockback = knockback.move_toward(Vector2.ZERO,1100.0*delta)
+		move_and_slide()
+		queue_redraw()
+		return
 	var player_stealthed: bool = target == player_node and player_node.get("stealth_ambush") == true
 	var effective_dmg := int(damage * (1.2 if blessed_timer > 0.0 else 1.0))
 	var move_speed := speed * (0.55 if slow_timer > 0.0 else 1.0)
@@ -204,6 +211,7 @@ func _execute_windup_attack(effective_dmg: int) -> void:
 	appearance_animation.release_attack()
 	if not is_instance_valid(target) or target.hp <= 0:
 		return
+	get_tree().call_group("game_audio","play_sfx","bow" if role in ["ranger","priest"] else ("magic" if role=="mage" else "swing"))
 	if role == "ranger" or role == "priest":
 		var shot := Projectile.new()
 		shot.global_position = global_position + Vector2(0, -14)
@@ -236,6 +244,8 @@ func _find_wounded_party_member() -> Node2D:
 	var lowest_ratio: float = 0.92
 	for ally in get_tree().get_nodes_in_group("enemies"):
 		if not is_instance_valid(ally) or not ally.is_visible_in_tree() or ally.hp <= 0:
+			continue
+		if global_position.distance_to(ally.global_position)>360.0:
 			continue
 		var ratio := float(ally.hp) / float(maxi(1, ally.max_hp))
 		if ratio < lowest_ratio:
@@ -276,6 +286,8 @@ func show_floating_text(words: String) -> void:
 func take_damage(amount: int, direction: Vector2 = Vector2.ZERO) -> void:
 	if hp <= 0:
 		return
+	if amount > 0 and dungeon_awareness != null:
+		dungeon_awareness.alert(self)
 	var final_amount := amount
 	# Frontline Knight protects weaker backline party members within 145px (Section 3)
 	if amount < 500 and _is_protected_by_knight():

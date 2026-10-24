@@ -8,6 +8,7 @@ const ATTACK_FIRST := 5 # Skip the opening and closing repeated ready poses.
 const ATTACK_FRAMES := 15
 
 var walk_time: float = 0.0
+var idle_time: float = 0.0
 var attack_elapsed: float = 0.0
 var attack_duration: float = 0.34
 var attacking: bool = false
@@ -18,6 +19,7 @@ func start_attack(duration: float = 0.34) -> void:
 	attacking = true
 
 func update(delta: float, moving: bool, alive: bool, movement_rate: float = 1.0) -> void:
+	idle_time += delta
 	if not alive:
 		attacking = false
 		return
@@ -52,7 +54,7 @@ func draw_actor(canvas: Node2D, size: float, faces_left: bool, moving: bool,
 		color = color.lerp(Color(1.6, 1.3, 1.1, color.a), 0.5)
 	if dead:
 		color = Color(0.45, 0.43, 0.4, 0.75)
-	canvas.draw_set_transform(Vector2(0, 10 if not dead else 16), -1.35 if dead else 0.0, Vector2(direction, 1.0))
+	canvas.draw_set_transform(Vector2(0, (10.0 + (sin(idle_time * 2.6) * 0.65 if not moving and not attacking else 0.0)) if not dead else 16.0), -1.35 if dead else 0.0, Vector2(direction, 1.0))
 	canvas.draw_texture_rect_region(texture, Rect2(-anchor * factor, Vector2.ONE * cell * factor), source, color)
 	if not dead and role_tag == "assassin":
 		canvas.draw_line(Vector2(-size * 0.18, -size * 0.24), Vector2(-size * 0.02, -size * 0.19), Color("88d97c"), 2.5, true)

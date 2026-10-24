@@ -3,7 +3,7 @@ extends RefCounted
 ## Tracks which hints have been shown via a meta dict on the game node.
 
 const HINTS := {
-	"first_spawn": "Welcome home. Walk through the den tunnels to explore, then follow the eastern route toward daylight.",
+	"first_spawn": "Wake by the fire. Choose a class rite, speak to Moss, and take your first expedition into Thornwood.",
 	"near_forge": "The FORGE reforges your blade for more damage. Spend scrap to power up!",
 	"near_rest": "Rest at the FIRE to restore HP, revive allies, and refill Bloodmoss Potions.",
 	"near_training": "The TRAINING PIT lets you evolve into advanced specializations at Level 2+.",

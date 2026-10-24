@@ -39,6 +39,12 @@ func _physics_process(delta: float) -> void:
 		windup = 0.0
 		queue_redraw()
 		return
+	if dungeon_awareness!=null and not dungeon_awareness.step(self,delta):
+		boss_state = "recover"
+		state_time = 1.0
+		move_and_slide()
+		queue_redraw()
+		return
 	state_time -= delta
 	match boss_state:
 		"recover":
@@ -118,14 +124,12 @@ func _rally() -> void:
 	var game = get_parent().get_parent()
 	for offset in [Vector2(-75, -65), Vector2(-75, 65)]:
 		var point: Vector2 = global_position + offset
-		point.x = clampf(point.x, 130, 1020)
-		point.y = clampf(point.y, 150, 570)
 		var cave = game.get_node("Cave")
 		var cell: Vector2i = cave._nearest_open_cell(point)
 		point = Vector2(cell) * 24.0 + Vector2(12, 12)
-		game.spawn_enemy_ext(2, point, "CAPTAIN'S GUARD", 35, 110.0, 9, 1, "knight", 15, "")
+		game.spawn_enemy_ext(2, point, "CAPTAIN'S GUARD", 35, 110.0, 9, 1, "knight", 15, "", "captains_guard",true)
 	for ally in get_tree().get_nodes_in_group("enemies"):
-		if ally.is_visible_in_tree() and ally.hp > 0:
+		if ally.is_visible_in_tree() and ally.hp > 0 and ally.global_position.distance_to(global_position)<400 and ally.get("blessed_timer")!=null:
 			ally.blessed_timer = 5.0
 	show_floating_text("HOLD THE LINE!")
 

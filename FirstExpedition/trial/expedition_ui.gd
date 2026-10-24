@@ -14,10 +14,15 @@ var banner_time := 0.0
 var journal_button: Button
 var mode := ""
 var cover: TextureRect
+var portraits: Dictionary = {}
+var letter_top: ColorRect
+var letter_bot: ColorRect
 
 func _ready() -> void:
 	layer = 24
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	for id in ["blade","archer","knight","mage"]:
+		portraits[id] = load("res://assets/goblin_class_%s.png"%id)
 	overlay = ColorRect.new()
 	overlay.color = Color(0.008,0.018,0.018,0.86)
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -29,6 +34,11 @@ func _ready() -> void:
 	cover.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cover)
+	var veil := ColorRect.new()
+	veil.color = Color(0.02,0.04,0.03,0.28)
+	veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cover.add_child(veil)
 	panel = PanelContainer.new()
 	panel.position = Vector2(176,90)
 	panel.size = Vector2(800,540)
@@ -44,6 +54,18 @@ func _ready() -> void:
 	body.add_theme_constant_override("separation",14)
 	panel.add_child(body)
 	overlay.hide()
+	letter_top = ColorRect.new()
+	letter_top.color = Color(0.01,0.02,0.02,0.82)
+	letter_top.position = Vector2(0,-80)
+	letter_top.size = Vector2(1152,70)
+	letter_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(letter_top)
+	letter_bot = ColorRect.new()
+	letter_bot.color = Color(0.01,0.02,0.02,0.82)
+	letter_bot.position = Vector2(0,720)
+	letter_bot.size = Vector2(1152,70)
+	letter_bot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(letter_bot)
 	banner = VBoxContainer.new()
 	banner.position = Vector2(226,215)
 	banner.size.x = 700
@@ -113,7 +135,27 @@ func open(page: String = "board") -> void:
 			line("FIRST EXPEDITION",25,GOLD)
 			line("A fire worth coming home to.",21)
 			line("The humans have gone. Our supplies went with them. Follow the Thornwood trails, find what the tribe lost, and come back alive.",17,MUTED)
-			line("One small goblin. A world worth exploring.",17,GOLD)
+			line("Choose the goblin you will be.",17,GOLD)
+			var rites := GridContainer.new()
+			rites.columns = 2
+			rites.add_theme_constant_override("h_separation",10)
+			rites.add_theme_constant_override("v_separation",8)
+			body.add_child(rites)
+			for rite in Data.RITES:
+				var chosen: bool = director.rite_id==rite.id
+				var card := VBoxContainer.new()
+				card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				rites.add_child(card)
+				var portrait := TextureRect.new()
+				portrait.texture = portraits.get(rite.id)
+				portrait.custom_minimum_size = Vector2(72,80)
+				portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+				card.add_child(portrait)
+				line(rite.title.to_upper(),13,GOLD if chosen else PALE,card)
+				var blurb := line(rite.line,12,MUTED,card)
+				blurb.custom_minimum_size.y = 52
+				button("Take the %s rite"%rite.title, take_rite.bind(rite.id), card)
 			line("WASD  Move   ·   E  Interact   ·   J  Field journal\nSpeak to Moss beside the resting fire.",14,MUTED)
 			button("Wake by the fire",func(): director.welcomed = true; close(); game._auto_save(); announce("HEARTH HALL","Find Moss beside the fire · Approach and press E"))
 		"board":
@@ -164,6 +206,7 @@ func open(page: String = "board") -> void:
 			line("“That's another few nights by the fire. You did well.” — Moss",17,MUTED)
 			line("%d SCRAP     +%d XP"%[s.get("scrap",0),s.get("xp",0)],30,GOLD)
 			line("Trail time %02d:%02d     Enemies defeated %d     Resources %d"%[int(s.get("seconds",0))/60,int(s.get("seconds",0))%60,s.get("kills",0),s.get("resources",0)],16)
+			line("Sky: %s     Best streak: %d"%[s.get("weather","Clear"),director.best_combo],16,GOLD)
 			line("Discoveries: " + (", ".join(s.get("discoveries",[])) if not s.get("discoveries",[]).is_empty() else "The next trail still holds its secrets."),16,MUTED)
 			button("Make it count · Choose an upgrade",func(): open("upgrades"))
 			button("One more expedition",func(): open("board"))
@@ -186,8 +229,9 @@ func open(page: String = "board") -> void:
 			line("HOMEBOUND  ·  Follow the gold compass. Once the objective is complete, Moss's hidden trail at the western forest sign takes you home. Or walk back through the caves.",16,MUTED)
 			if not active.is_empty():
 				line("Optional: gather bloodmoss, investigate the sheltered camp, or cross the river for the guarded Watcher's cache. No countdown. Your expedition ends when you choose.",16)
-				line("Seed %d  ·  %s  ·  Expedition %d"%[active.seed,active.weather,active.serial],13,MUTED)
+				line("Seed %d  ·  %s  ·  Expedition %d  ·  %s"%[active.seed,active.weather,active.serial,Data.weather_profile(str(active.weather)).blurb],13,MUTED)
 			line("Fight with Space / click, aim with the mouse. Q uses your class special, Shift dodges, F drinks a potion. Press E near a defeated enemy to inspect its loot.",15)
+			line("Mist: stand still to vanish. Rain: arrows hang in the wet. Clear: watchers see farther. Streaks raise your damage until you are hit.",14,GOLD)
 			if director.home():
 				button("Speak with Moss",func(): open("board"))
 			button("Return to the trail",close)
@@ -195,6 +239,10 @@ func open(page: String = "board") -> void:
 	director.game.interaction_feedback.prompt.hide()
 	# Keep actors and input still while reading; this UI alone processes while paused.
 	get_tree().paused = true
+
+func take_rite(class_id: String) -> void:
+	director.choose_rite(class_id)
+	open("welcome")
 
 func close() -> void:
 	overlay.hide()
@@ -220,6 +268,9 @@ func _process(delta: float) -> void:
 	banner.visible = banner_time>0 and not overlay.visible
 	banner.modulate.a = minf(1,banner_time)*minf(1,(5-banner_time)*2)
 	journal_button.visible = not get_tree().paused
+	var letter := 70.0 if banner.visible else 0.0
+	letter_top.position.y = lerpf(letter_top.position.y, -80.0+letter, minf(1.0,delta*8.0))
+	letter_bot.position.y = lerpf(letter_bot.position.y, 720.0-letter, minf(1.0,delta*8.0))
 
 func _exit_tree() -> void:
 	if is_instance_valid(overlay) and overlay.visible:

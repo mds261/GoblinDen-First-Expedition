@@ -1,6 +1,3 @@
 .godot/
 *.tmp
-
-FirstExpedition/docs/
-.godot/
-.DS_Store
+work/

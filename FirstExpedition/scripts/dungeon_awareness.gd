@@ -7,6 +7,7 @@ const LOST_SIGHT_SECONDS := 3.0
 var home := Vector2.ZERO
 var state := "idle"
 var unseen_time := 0.0
+var notice_scale := 1.0
 
 func configure(actor: CharacterBody2D) -> void:
 	home = actor.global_position
@@ -36,7 +37,7 @@ func step(actor: CharacterBody2D, delta: float) -> bool:
 		var target_point: Vector2 = actor.target.global_position
 		var distance := actor.global_position.distance_to(target_point)
 		if state == "idle":
-			if distance <= NOTICE_RADIUS and sees(actor,target_point):
+			if distance <= NOTICE_RADIUS * notice_scale and sees(actor,target_point):
 				alert(actor)
 		elif state == "engaged":
 			if actor.global_position.distance_to(home)>HOME_LEASH or target_point.distance_to(home)>TARGET_LEASH:

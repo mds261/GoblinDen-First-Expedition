@@ -4,9 +4,9 @@ extends RefCounted
 
 # Versioned for the single-goblin opening. Older prototype saves could begin
 # with a fully recruited roster, so this update intentionally starts clean once.
-const SAVE_PATH := "user://goblin_den_save_single_start_v2.cfg"
+static var SAVE_PATH := "user://first_expedition_v1.cfg"
 
-static func save(game: Node2D) -> void:
+static func save(game: Node2D) -> bool:
 	var cfg := ConfigFile.new()
 	# Preserve forward-compatible sections when the game updates its autosave.
 	cfg.load(SAVE_PATH)
@@ -42,13 +42,29 @@ static func save(game: Node2D) -> void:
 		var stats: Dictionary = game.get_stats()
 		for key in stats:
 			cfg.set_value("stats", key, stats[key])
-	cfg.save(SAVE_PATH)
+	if game.rpg != null:
+		cfg.set_value("rpg", "state", game.rpg.snapshot())
+	if game.get("expedition") != null:
+		cfg.set_value("trial", "state", game.expedition.snapshot())
+		cfg.set_value("trial", "room", game.current_room)
+		cfg.set_value("trial", "position", game.player.position)
+		cfg.set_value("trial", "hp", game.player.hp)
+	# Write a complete snapshot before atomically replacing the prior save.
+	var error := cfg.save(SAVE_PATH + ".tmp")
+	if error == OK:
+		error = DirAccess.rename_absolute(SAVE_PATH + ".tmp", SAVE_PATH)
+	if error != OK:
+		game.show_notice("Save failed: " + error_string(error))
+	return error == OK
 
 static func load_data(game: Node2D) -> bool:
 	var cfg := ConfigFile.new()
 	var err := cfg.load(SAVE_PATH)
 	if err != OK:
 		return false
+	if game.get("expedition") != null:
+		game.expedition.restore(cfg.get_value("trial", "state", {}))
+		game.set_meta("trial_resume", {"room":cfg.get_value("trial","room",0),"position":cfg.get_value("trial","position",Vector2(640,1408)),"hp":cfg.get_value("trial","hp",100)})
 	var player = game.player
 	# Restore progression
 	game.scrap = int(cfg.get_value("progression", "scrap", 0))
@@ -88,6 +104,8 @@ static func load_data(game: Node2D) -> bool:
 	var saved_interactions = cfg.get_value("unlocks", "expanse_interactions", [])
 	if saved_interactions is Array:
 		game.used_expanse_interactions.assign(saved_interactions)
+	if game.rpg != null:
+		game.rpg.restore(cfg.get_value("rpg", "state", {}))
 	return true
 
 static func has_save() -> bool:

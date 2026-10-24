@@ -1,4 +1,5 @@
 extends Node2D
+const ItemIcons = preload("res://scripts/item_icons.gd")
 ## Walk over dropped scrap/loot to collect it. Inactive rooms cannot grant loot.
 ## Supports both scrap rewards and story-driven human weapon drops (Section 6).
 
@@ -26,10 +27,12 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	draw_circle(Vector2.ZERO, 17, Color(0.8, 0.65, 0.3, 0.15))
-	draw_colored_polygon(PackedVector2Array([Vector2(-10, 2), Vector2(-4, -9), Vector2(10, -4), Vector2(7, 8)]), Color("d5b879"))
+	var icon := ItemIcons.get_icon(loot_id if loot_id != "" else "scrap")
+	if icon != null:
+		draw_texture_rect(icon, Rect2(-24, -24, 48, 48), false)
 	if loot_id != "":
 		var pulse := 0.55 + 0.25 * sin(time * 6.0)
 		draw_arc(Vector2.ZERO, 22.0, 0, TAU, 24, Color(0.98, 0.82, 0.38, pulse), 2.0, true)
-		draw_line(Vector2(-9, -11), Vector2(11, 9), Color("f2dfb3"), 2.5, true)
+
 		draw_string(ThemeDB.fallback_font, Vector2(-34, -18), "RELIC + SCRAP", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("ffd97d"))
 	draw_string(ThemeDB.fallback_font, Vector2(-23, 30), "+%d scrap" % amount, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("e3ce98"))

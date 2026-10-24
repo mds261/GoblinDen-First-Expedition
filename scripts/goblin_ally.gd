@@ -125,6 +125,11 @@ func _choose_enemy_target(player: Node2D) -> Node2D:
 	for enemy in get_tree().get_nodes_in_group("enemies"):
 		if not is_instance_valid(enemy) or not enemy.is_visible_in_tree() or enemy.hp <= 0:
 			continue
+		var awareness = enemy.get("dungeon_awareness")
+		if awareness != null and (awareness.state != "engaged" or player.global_position.distance_to(enemy.global_position)>420.0):
+			continue
+		if enemy.get("boss_state") == "dormant":
+			continue
 		var dist := global_position.distance_to(enemy.global_position)
 		# Goblin Rogues and Archers prioritize enemy Priests, Mages, and Rangers!
 		if role in ["blade", "archer"] and enemy.get("role") in ["priest", "mage", "ranger"]:
