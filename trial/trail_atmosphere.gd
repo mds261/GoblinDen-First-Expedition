@@ -94,6 +94,11 @@ func _draw() -> void:
 				var at: Vector2 = p+Vector2(-14+j*14,0)
 				draw_line(at+Vector2(-4,-5),at,Color(0.63,0.79,0.57,0.6),2,true)
 				draw_line(at,at+Vector2(-4,5),Color(0.63,0.79,0.57,0.6),2,true)
+	var shadow: PackedVector2Array = PackedVector2Array()
+	for i in 14:
+		var angle := TAU * float(i) / 14.0
+		shadow.append(player_at + Vector2(cos(angle) * 16.0, 18.0 + sin(angle) * 6.0))
+	draw_colored_polygon(shadow, Color(0, 0, 0, 0.38))
 	for mote in dust:
 		draw_circle(mote.at, 2.4, Color(0.55,0.48,0.32,mote.life))
 	var target: Vector2 = director.target_point()
@@ -132,21 +137,28 @@ func _draw() -> void:
 			for j in range(7):
 				draw_circle(p+Vector2.from_angle(j*TAU/7)*20,5,Color("727c6e"))
 			light(p,45,Color(1,0.62,0.24,0.6))
-		if player_at.distance_to(p)<190:
-			draw_string(ThemeDB.fallback_font,p+Vector2(-48,-40),"OPTIONAL" if entry.kind in ["bonus","event"] else "SUPPLIES" if entry.kind=="cache" else "DISCOVERY",HORIZONTAL_ALIGNMENT_LEFT,-1,11,tint)
+		if player_at.distance_to(p)<240:
+			var caption := "OPTIONAL" if entry.kind in ["bonus","event"] else "SUPPLIES" if entry.kind=="cache" else "DISCOVERY"
+			var width := ThemeDB.fallback_font.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+			var plate := Rect2(p + Vector2(-width * 0.5 - 8, -58), Vector2(width + 16, 18))
+			draw_rect(plate, Color(0.03, 0.05, 0.04, 0.86))
+			draw_rect(plate, Color(tint, 0.8), false, 1.0)
+			draw_string(ThemeDB.fallback_font, p + Vector2(-width * 0.5, -44), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, tint)
 
 func draw_compass() -> void:
 	if director.ui.overlay.visible:
 		return
 	var game = director.game
-	var point := Vector2(866,112)
+	var plate := Rect2(20, 142, 318, 46)
+	compass.draw_rect(plate, Color(0.025, 0.042, 0.036, 0.9))
+	compass.draw_rect(plate, Color(0.5, 0.43, 0.29, 0.8), false, 1.0)
+	var point := Vector2(48, 165)
 	var direction: Vector2 = game.player.position.direction_to(director.target_point())
-	compass.draw_circle(point,26,Color(0.02,0.05,0.04,0.92))
-	compass.draw_arc(point,26,0,TAU,40,Color("8f7951"),1.4,true)
+	compass.draw_circle(point, 16, Color(0.02, 0.05, 0.04, 0.92))
+	compass.draw_arc(point, 16, 0, TAU, 32, Color("8f7951"), 1.2, true)
 	var side := direction.orthogonal()
-	compass.draw_colored_polygon(PackedVector2Array([point+direction*19,point-direction*11+side*7,point-direction*5,point-direction*11-side*7]),GOLD)
+	compass.draw_colored_polygon(PackedVector2Array([point+direction*12, point-direction*7+side*4, point-direction*3, point-direction*7-side*4]), GOLD)
 	var weather := str(director.active.get("weather","Clear")) if not director.active.is_empty() and not director.active.get("claimed",false) else "Haven"
-	compass.draw_string(ThemeDB.fallback_font,Vector2(808,150),"TRAIL  ·  %d PACES"%director.paces(),HORIZONTAL_ALIGNMENT_LEFT,-1,10,GOLD)
-	compass.draw_string(ThemeDB.fallback_font,Vector2(808,166),weather.to_upper(),HORIZONTAL_ALIGNMENT_LEFT,-1,10,Color("aabcae"))
-	if director.combo>=2:
-		compass.draw_string(ThemeDB.fallback_font,Vector2(808,182),"STREAK %d"%director.combo,HORIZONTAL_ALIGNMENT_LEFT,-1,11,Color("e7c07b"))
+	compass.draw_string(ThemeDB.fallback_font, Vector2(74, 158), "%d paces  ·  %s  ·  %d scrap" % [director.paces(), weather.to_upper(), director.game.scrap], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("f3e6c8"))
+	var extra := "Streak %d" % director.combo if director.combo >= 2 else "Follow the gold needle"
+	compass.draw_string(ThemeDB.fallback_font, Vector2(74, 176), extra, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, GOLD)

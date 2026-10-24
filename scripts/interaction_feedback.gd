@@ -1,4 +1,5 @@
 extends Node2D
+const Look = preload("res://trial/look.gd")
 ## One focus resolver drives both the prompt and E activation.
 const Starting = preload("res://scripts/starting_caves.gd")
 const Den = preload("res://scripts/den_layout.gd")
@@ -18,16 +19,7 @@ func _ready() -> void:
 	add_child(layer)
 	prompt = PanelContainer.new()
 	prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.035, 0.045, 0.035, 0.95)
-	style.border_color = Color("bca16a")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(5)
-	style.content_margin_left = 16
-	style.content_margin_right = 16
-	style.content_margin_top = 9
-	style.content_margin_bottom = 9
-	prompt.add_theme_stylebox_override("panel", style)
+	prompt.add_theme_stylebox_override("panel", Look.prompt())
 	layer.add_child(prompt)
 	label = Label.new()
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE

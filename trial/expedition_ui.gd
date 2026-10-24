@@ -1,5 +1,6 @@
 extends CanvasLayer
 const Data = preload("res://trial/contracts.gd")
+const Look = preload("res://trial/look.gd")
 const GOLD := Color("d9b979")
 const PALE := Color("eee6cf")
 const MUTED := Color("aabcae")
@@ -42,13 +43,7 @@ func _ready() -> void:
 	panel = PanelContainer.new()
 	panel.position = Vector2(176,90)
 	panel.size = Vector2(800,540)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("101f1b")
-	style.border_color = Color("89734c")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	style.set_content_margin_all(30)
-	panel.add_theme_stylebox_override("panel",style)
+	panel.add_theme_stylebox_override("panel", Look.panel(false))
 	overlay.add_child(panel)
 	body = VBoxContainer.new()
 	body.add_theme_constant_override("separation",14)
@@ -87,9 +82,10 @@ func _ready() -> void:
 	banner.add_child(subtitle)
 	journal_button = Button.new()
 	journal_button.text = "Field journal [J]"
-	journal_button.position = Vector2(918,219)
-	journal_button.size = Vector2(200,32)
+	journal_button.position = Vector2(354,142)
+	journal_button.size = Vector2(196,34)
 	journal_button.pressed.connect(func(): open("journal"))
+	Look.dress(journal_button)
 	add_child(journal_button)
 
 func line(text: String, size_px: int = 16, color: Color = PALE, parent: Node = null) -> Label:
@@ -101,13 +97,14 @@ func line(text: String, size_px: int = 16, color: Color = PALE, parent: Node = n
 	(parent if parent!=null else body).add_child(label)
 	return label
 
-func button(text: String, action: Callable, parent: Node = null, disabled: bool = false) -> Button:
+func button(text: String, action: Callable, parent: Node = null, disabled: bool = false, height: int = 40) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size.y = 40
+	b.custom_minimum_size.y = height
 	b.add_theme_font_size_override("font_size",15)
 	b.pressed.connect(action)
 	b.disabled = disabled
+	Look.dress(b)
 	(parent if parent!=null else body).add_child(b)
 	return b
 
@@ -120,22 +117,19 @@ func open(page: String = "board") -> void:
 		child.queue_free()
 	panel.size = Vector2(800,0)
 	cover.visible = page=="welcome"
-	panel.position = Vector2(40,94) if page=="welcome" else Vector2(176,90)
-	panel.size.x = 510 if page=="welcome" else 800
-	var panel_style := panel.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
-	panel_style.bg_color = Color(0.025,0.055,0.04,0.72) if page=="welcome" else Color("101f1b")
-	panel_style.border_color = Color(0.54,0.45,0.30,0.4) if page=="welcome" else Color("89734c")
-	panel.add_theme_stylebox_override("panel",panel_style)
+	panel.position = Vector2(36,12) if page=="welcome" else Vector2(150,64)
+	panel.size.x = 520 if page=="welcome" else 852
+	panel.add_theme_stylebox_override("panel", Look.panel(page=="welcome", 12 if page=="welcome" else 20))
+	body.add_theme_constant_override("separation", 4 if page=="welcome" else 12)
 	var game = director.game
 	var active: Dictionary = director.active
 	line("A   G O B L I N ' S   J O U R N E Y" if page=="welcome" else "G O B L I N D E N   /   F I R S T   E X P E D I T I O N",12,GOLD)
 	match page:
 		"welcome":
-			line("GoblinDen",54)
-			line("FIRST EXPEDITION",25,GOLD)
-			line("A fire worth coming home to.",21)
-			line("The humans have gone. Our supplies went with them. Follow the Thornwood trails, find what the tribe lost, and come back alive.",17,MUTED)
-			line("Choose the goblin you will be.",17,GOLD)
+			line("GoblinDen",34)
+			line("FIRST EXPEDITION",18,GOLD)
+			line("The supplies are gone. Follow Thornwood, bring something home, and keep the fire.",14,MUTED)
+			line("Choose the goblin you will be.",15,GOLD)
 			var rites := GridContainer.new()
 			rites.columns = 2
 			rites.add_theme_constant_override("h_separation",10)
@@ -143,20 +137,23 @@ func open(page: String = "board") -> void:
 			body.add_child(rites)
 			for rite in Data.RITES:
 				var chosen: bool = director.rite_id==rite.id
+				var shell := PanelContainer.new()
+				shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				shell.add_theme_stylebox_override("panel", Look.card(chosen))
+				rites.add_child(shell)
 				var card := VBoxContainer.new()
-				card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				rites.add_child(card)
+				shell.add_child(card)
 				var portrait := TextureRect.new()
 				portrait.texture = portraits.get(rite.id)
-				portrait.custom_minimum_size = Vector2(72,80)
+				portrait.custom_minimum_size = Vector2(0,42)
 				portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 				portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 				card.add_child(portrait)
 				line(rite.title.to_upper(),13,GOLD if chosen else PALE,card)
 				var blurb := line(rite.line,12,MUTED,card)
-				blurb.custom_minimum_size.y = 52
-				button("Take the %s rite"%rite.title, take_rite.bind(rite.id), card)
-			line("WASD  Move   ·   E  Interact   ·   J  Field journal\nSpeak to Moss beside the resting fire.",14,MUTED)
+				blurb.custom_minimum_size.y = 32
+				button("Take the %s rite"%rite.title, take_rite.bind(rite.id), card, false, 32)
+			line("WASD move  ·  E interact  ·  then speak to Moss by the fire.",13,MUTED)
 			button("Wake by the fire",func(): director.welcomed = true; close(); game._auto_save(); announce("HEARTH HALL","Find Moss beside the fire · Approach and press E"))
 		"board":
 			line("Moss's expedition board",32)
@@ -171,10 +168,13 @@ func open(page: String = "board") -> void:
 				cards.add_theme_constant_override("separation",14)
 				body.add_child(cards)
 				for i in range(3):
+					var shell := PanelContainer.new()
+					shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+					shell.add_theme_stylebox_override("panel", Look.card(false))
+					cards.add_child(shell)
 					var card := VBoxContainer.new()
-					card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 					card.add_theme_constant_override("separation",12)
-					cards.add_child(card)
+					shell.add_child(card)
 					var def: Dictionary = Data.CONTRACTS[i]
 					line(def.tag,12,GOLD,card)
 					line(def.name,21,PALE,card)

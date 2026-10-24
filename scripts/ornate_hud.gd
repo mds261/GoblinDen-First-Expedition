@@ -6,13 +6,16 @@ var face: Font
 const GOLD = Color("ad9360")
 const PALE = Color("e9dec4")
 const MUTED = Color("b4b7a4")
+var clock := 0.0
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	face = SystemFont.new()
 	face.font_names = PackedStringArray(["Georgia", "DejaVu Serif", "serif"])
 	for id in ["blade", "archer", "knight", "mage"]:
 		portraits[id] = load("res://assets/goblin_class_%s.png" % id)
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	clock += delta
 	visible = not get_tree().paused
 	queue_redraw()
 func text_at(value: String, point: Vector2, size_px: int = 12, color: Color = PALE, width: float = -1, serif: bool = false) -> void:
@@ -37,12 +40,32 @@ func ability(at: Vector2, key: String, title: String, detail: String, ready: boo
 	text_at(key,at+Vector2(8,15),11,GOLD)
 	text_at(detail,at+Vector2(8,33),12,PALE if ready else MUTED)
 	text_at(title,at+Vector2(1,-6),10,MUTED)
+func vignette() -> void:
+	var w := size.x
+	var h := size.y
+	if w < 32.0 or h < 32.0:
+		return
+	var hurt := 0.0
+	if game.player.max_hp > 0 and game.player.hp > 0:
+		var ratio := float(game.player.hp) / float(game.player.max_hp)
+		if ratio < 0.34:
+			hurt = (0.34 - ratio) / 0.34 * (0.45 + 0.55 * absf(sin(clock * 3.2)))
+	for i in 12:
+		var fade := float(12 - i) / 12.0
+		var alpha := 0.045 * fade + hurt * 0.11 * fade
+		var band := 11.0
+		var tint := Color(0.28, 0.02, 0.02, alpha) if hurt > 0.05 else Color(0, 0, 0, alpha)
+		draw_rect(Rect2(0, i * band, w, band), tint)
+		draw_rect(Rect2(0, h - (i + 1) * band, w, band), tint)
+		draw_rect(Rect2(i * band * 0.7, 0, band, h), Color(0, 0, 0, alpha * 0.65))
+		draw_rect(Rect2(w - (i + 1) * band * 0.7, 0, band, h), Color(0, 0, 0, alpha * 0.65))
 func _draw() -> void:
 	if game == null or not is_instance_valid(game.player):
 		return
+	vignette()
 	var p = game.player
 	var r = game.rpg
-	draw_style_box(frame(),Rect2(20,18,310,91))
+	draw_style_box(frame(),Rect2(20,18,318,96))
 	var center := Vector2(57,58)
 	draw_circle(center,28,Color("111a14"))
 	draw_arc(center,28,0,TAU,48,GOLD,1,true)
@@ -57,21 +80,18 @@ func _draw() -> void:
 		bar(Vector2(207,67),103,6,r.stamina,100,Color("768951"))
 		text_at("Mana %d" % r.mana,Vector2(96,87),10,MUTED)
 		text_at("Stamina %d" % r.stamina,Vector2(207,87),10,MUTED)
-	bar(Vector2(96,96),214,3,p.xp,p.xp_to_next,Color("aa8b50"))
-	text_at("Lv %d" % p.level,Vector2(43,98),11,GOLD)
-	text_at(game.room_label.text.to_upper(),Vector2(365,37),18,PALE,510,true)
-	draw_line(Vector2(365,48),Vector2(665,48),Color(0.61,0.52,0.33,0.45),1)
-	text_at(game.objective.text,Vector2(365,68),12,MUTED,510)
-	text_at("%d scrap"%game.scrap,Vector2(365,88),11,GOLD)
+	bar(Vector2(96,100),214,3,p.xp,p.xp_to_next,Color("aa8b50"))
+	text_at("Lv %d" % p.level,Vector2(43,108),11,GOLD)
+	var place: String = str(game.room_label.text).to_upper()
+	draw_style_box(frame(),Rect2(354,18,500,72))
+	text_at(place,Vector2(372,44),18,PALE,460,true)
+	draw_line(Vector2(372,54),Vector2(760,54),Color(0.61,0.52,0.33,0.55),1)
+	text_at(game.objective.text,Vector2(372,76),13,MUTED,460)
 	if game.get("expedition") != null and game.expedition.is_inside_tree():
-		var sky := "Haven"
-		if not game.expedition.active.is_empty() and not game.expedition.active.get("claimed",false) and game.current_room != 0:
-			sky = str(game.expedition.active.weather)
-		text_at(sky,Vector2(455,88),11,MUTED)
 		if game.player.stealth_ambush:
-			text_at("AMBUSH READY",Vector2(530,88),11,Color("87d4b0"))
+			text_at("AMBUSH READY",Vector2(760,44),11,Color("87d4b0"))
 		elif game.expedition.combo >= 2:
-			text_at("STREAK %d"%game.expedition.combo,Vector2(530,88),11,GOLD)
+			text_at("STREAK %d" % game.expedition.combo,Vector2(760,44),11,GOLD)
 	ability(Vector2(24,653),"Q","Special","Ready" if p.special_cooldown<=0 else "%.1fs" % p.special_cooldown,p.special_cooldown<=0)
 	ability(Vector2(90,653),"Shift","Dodge","Ready" if p.dodge_cooldown<=0 else "%.1fs" % p.dodge_cooldown,p.dodge_cooldown<=0)
 	ability(Vector2(156,653),"F","Potion",str(game.potions),game.potions>0)

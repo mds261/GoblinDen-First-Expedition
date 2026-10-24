@@ -1129,7 +1129,7 @@ func create_hud() -> void:
 	game_menu = preload("res://scripts/game_menu.gd").new()
 	game_menu.game = self
 	add_child(game_menu)
-	hint = add_label(hud, "", Vector2(350, 90), 14, Color("e5d7b4"))
+	hint = add_label(hud, "", Vector2(360, 108), 14, Color("e5d7b4"))
 	hint.size = Vector2(530,70)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_color_override("font_shadow_color",Color.BLACK)

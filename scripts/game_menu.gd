@@ -1,4 +1,5 @@
 extends CanvasLayer
+const Look = preload("res://trial/look.gd")
 ## Pause and reference controls live here, outside the playfield.
 var game: Node2D
 var overlay: ColorRect
@@ -13,15 +14,9 @@ func _ready() -> void:
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(overlay)
 	var panel := PanelContainer.new()
-	panel.position = Vector2(256,90)
-	panel.size = Vector2(640,540)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("111b17")
-	style.border_color = Color("8a744c")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	style.set_content_margin_all(28)
-	panel.add_theme_stylebox_override("panel",style)
+	panel.position = Vector2(256,78)
+	panel.size = Vector2(640,560)
+	panel.add_theme_stylebox_override("panel", Look.panel(false))
 	overlay.add_child(panel)
 	content = VBoxContainer.new()
 	content.add_theme_constant_override("separation",12)
@@ -65,6 +60,7 @@ func _button(text: String, action: Callable) -> void:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size.y = 36
+	Look.dress(button)
 	button.pressed.connect(action)
 	content.add_child(button)
 func _rebuild() -> void:

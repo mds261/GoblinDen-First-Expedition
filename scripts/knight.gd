@@ -351,10 +351,14 @@ func _draw() -> void:
 	if stun_timer > 0.0:
 		draw_arc(Vector2(0, -size * 0.72), 16.0, animation_time * 4.0, animation_time * 4.0 + PI * 1.4, 14, Color("ffe875"), 2.5, true)
 	var top := minf(-size * 0.84, appearance_animation.label_top(size))
-	draw_rect(Rect2(-62, top - 16, 124, 19), Color(0.04, 0.035, 0.03, 0.8))
-	draw_string(ThemeDB.fallback_font, Vector2(-56, top - 2), display_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("decbae"))
-	draw_rect(Rect2(-28, top + 8, 56, 5), Color("342830"))
-	draw_rect(Rect2(-28, top + 8, 56 * float(hp) / max_hp, 5), Color("c37e69"))
+	draw_rect(Rect2(-64, top - 18, 128, 22), Color(0.03, 0.035, 0.03, 0.88))
+	draw_rect(Rect2(-64, top - 18, 128, 22), Color(0.55, 0.44, 0.28, 0.7), false, 1.0)
+	draw_string(ThemeDB.fallback_font, Vector2(-58, top - 2), display_name, HORIZONTAL_ALIGNMENT_LEFT, 116, 12, Color("f0ddb8"))
+	draw_rect(Rect2(-58, top + 8, 116, 6), Color("1a1214"))
+	var life := 116.0 * clampf(float(hp) / float(maxi(1, max_hp)), 0.0, 1.0)
+	draw_rect(Rect2(-58, top + 8, life, 6), Color("e07a62") if hp < max_hp * 0.35 else Color("c45848"))
+	if life > 2.0:
+		draw_line(Vector2(-58, top + 8), Vector2(-58 + life, top + 8), Color(1, 0.82, 0.7, 0.55), 1.0)
 	if status_text_time > 0.0:
 		draw_string(ThemeDB.fallback_font, Vector2(-38, top - 22 - (0.85 - status_text_time) * 18), status_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("ffe596"))
 
