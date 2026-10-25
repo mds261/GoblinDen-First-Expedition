@@ -3,6 +3,7 @@ extends Node2D
 const Starting = preload("res://scripts/starting_caves.gd")
 const Layout = preload("res://scripts/dungeon_layout.gd")
 const Cinder = preload("res://scripts/cinder_orchard_layout.gd")
+const Thornveil = preload("res://scripts/thornveil_layout.gd")
 const Den = preload("res://scripts/den_layout.gd")
 const CELL := 48.0
 const SIGHT := 192.0
@@ -131,11 +132,23 @@ func _markers() -> Array:
 		result.append({"id":"back","point":Vector2(140,365),"type":"route"})
 	if room_id==5:
 		result.append({"id":"cinder_crack","point":Cinder.HOLLOW_ENTRANCE,"type":"route"})
+		result.append({"id":"thornveil_gate","point":Thornveil.HOLLOW_GATE,"type":"route"})
 	if room_id==Cinder.ROOM:
 		result.append({"id":"cinder_return","point":Cinder.EXIT,"type":"route"})
 		result.append({"id":"cinder_kiln","point":Cinder.BOSS,"type":"treasure"})
 		if not rpg.orchard.cache_taken:
 			result.append({"id":"cinder_cache","point":Cinder.CACHE,"type":"treasure"})
+	if room_id==Thornveil.APPROACH:
+		result.append({"id":"veil_hollow","point":Thornveil.APPROACH_TO_HOLLOW,"type":"route"})
+		result.append({"id":"veil_shrine","point":Thornveil.APPROACH_TO_SHRINE,"type":"route"})
+	if room_id==Thornveil.SHRINE:
+		result.append({"id":"veil_approach","point":Thornveil.SHRINE_TO_APPROACH,"type":"route"})
+		result.append({"id":"veil_glade","point":Thornveil.SHRINE_TO_GLADE,"type":"route"})
+		if not rpg.thornveil.cache_taken:
+			result.append({"id":"veil_cache","point":Thornveil.SHRINE_CACHE,"type":"treasure"})
+	if room_id==Thornveil.GLADE:
+		result.append({"id":"veil_return","point":Thornveil.GLADE_TO_SHRINE,"type":"route"})
+		result.append({"id":"veil_crown","point":Thornveil.BOSS,"type":"treasure"})
 	if room_id>0 and room_id<6:
 		result.append({"id":"forward","point":Vector2(1010,365),"type":"route"})
 	if room_id==6:

@@ -27,7 +27,7 @@ func run() -> void:
 	Save.delete_save()
 	await fresh()
 	var hunts = game.rpg.boss_hunts
-	check(hunts.quests().size() == 10 and hunts.quests().back().id == "bonus_cinder", "Cinder follows all nine main hunts")
+	check(hunts.quests().filter(func(q): return not q.get("bonus",false)).size() == 9 and hunts.quests()[9].id == "bonus_cinder", "Cinder follows all nine main hunts")
 	game.enter_room(16,Layout.SPAWN,true)
 	check(game.current_room == 5 and not game.rpg.orchard.accessible(), "Early room entry and old room resumes cannot bypass the bonus gate")
 	game.player.position = Layout.HOLLOW_ENTRANCE

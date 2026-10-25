@@ -3,7 +3,8 @@ extends Node
 const MUSIC := {
 	"haven":preload("res://assets/audio/music_haven.wav"),
 	"woodland":preload("res://assets/audio/music_woodland.wav"),
-	"descent":preload("res://assets/audio/music_descent.wav")
+	"descent":preload("res://assets/audio/music_descent.wav"),
+	"thornveil":preload("res://assets/audio/music_thornveil.wav")
 }
 const EFFECTS := {
 	"hit":preload("res://assets/audio/hit.wav"),"hurt":preload("res://assets/audio/hurt.wav"),
@@ -13,6 +14,8 @@ const EFFECTS := {
 	"coin":preload("res://assets/audio/coin.wav"),"potion":preload("res://assets/audio/potion.wav"),
 	"death":preload("res://assets/audio/death.wav"),"level_up":preload("res://assets/audio/level_up.wav"),
 	"stairs":preload("res://assets/audio/stairs.wav"),"boss":preload("res://assets/audio/boss.wav"),
+	"thorn_root":preload("res://assets/audio/thorn_root.wav"),"thorn_volley":preload("res://assets/audio/thorn_volley.wav"),
+	"thorn_memory":preload("res://assets/audio/thorn_memory.wav"),
 	"step_stone":preload("res://assets/audio/step_stone.wav"),"step_grass":preload("res://assets/audio/step_grass.wav")
 }
 # Cue-specific balance keeps small repeated actions behind music and combat.
@@ -20,9 +23,10 @@ const CUE_GAIN_DB := {
 	"hit":-10.0,"hurt":-11.0,"swing":-13.0,"dodge":-14.0,"bow":-12.0,
 	"magic":-15.0,"interact":-16.0,"loot":-15.0,"coin":-16.0,
 	"potion":-14.0,"death":-13.0,"level_up":-14.0,"stairs":-15.0,
-	"boss":-15.0,"step_stone":-24.0,"step_grass":-24.0
+	"boss":-15.0,"thorn_root":-12.0,"thorn_volley":-15.0,"thorn_memory":-12.0,
+	"step_stone":-24.0,"step_grass":-24.0
 }
-const COMBAT_CUES := ["hit","hurt","swing","bow","magic","boss"]
+const COMBAT_CUES := ["hit","hurt","swing","bow","magic","boss","thorn_root","thorn_volley"]
 const SETTINGS := "user://audio_settings.cfg"
 var game: Node2D
 var music_level := 0.35
@@ -85,6 +89,8 @@ func _ready() -> void:
 	_switch_music(mood_for_room(game.current_room))
 
 func mood_for_room(room_id: int) -> String:
+	if room_id in [17,18,19]:
+		return "thornveil"
 	if room_id==0 and is_instance_valid(game.player):
 		return "haven" if game.is_den_room() else "descent"
 	if room_id in [0,7,8,9,10]:
@@ -131,7 +137,7 @@ func _update_footsteps() -> void:
 	step_distance += distance
 	if step_distance>=68.0:
 		step_distance = fmod(step_distance,68.0)
-		play_sfx("step_grass" if game.current_room in [5,6,10] else "step_stone")
+		play_sfx("step_grass" if game.current_room in [5,6,10,17,18,19] else "step_stone")
 
 func play_sfx(cue: String) -> bool:
 	if not EFFECTS.has(cue) or float(cooldowns.get(cue,0.0))>0.0:

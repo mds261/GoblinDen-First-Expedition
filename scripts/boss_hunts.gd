@@ -32,8 +32,10 @@ func completed_count() -> int:
 	return total
 
 func is_complete(quest: Dictionary) -> bool:
-	if quest.get("bonus",false):
+	if quest.get("bonus",false) and str(quest.boss_id) == "kilnheart":
 		return game.rpg.orchard.bonus_completed
+	if str(quest.boss_id) == "bramble_crown":
+		return game.rpg.thornveil.boss_defeated
 	if str(quest.boss_id) == "kilnheart" and game.rpg.orchard.boss_defeated:
 		return true
 	if str(quest.boss_id) == "vault_hunger" and game.rpg.dungeon.boss_defeated:
@@ -77,10 +79,10 @@ func ensure_encounter() -> void:
 	if not accepted or quest.is_empty() or is_complete(quest) or is_instance_valid(actor):
 		return
 	var id := str(quest.boss_id)
-	if quest.get("bonus",false):
+	if id == "kilnheart":
 		game.rpg.orchard.begin_bonus()
 		return
-	if id in ["kilnheart", "vault_hunger"]:
+	if id in ["kilnheart", "vault_hunger", "bramble_crown"]:
 		return
 	var room := int(quest.room)
 	var point := Vector2(float(quest.x), float(quest.y))
@@ -127,9 +129,9 @@ func target_point() -> Vector2:
 		return game.expedition.moss_position() if returning else Vector2(quest.x, quest.y)
 	match room:
 		0: return Starting.EXIT
-		5: return game.LEFT_GATE if destination == 0 else (preload("res://scripts/cinder_orchard_layout.gd").HOLLOW_ENTRANCE if destination == 16 else game.RIGHT_GATE)
-		6: return game.rpg.BOG_TRAIL_POINT if destination >= 11 and destination != 16 else game.EXPANSE_RETURN_GATE
-		11: return Vector2(1000,365) if destination >= 12 and destination != 16 else Vector2(145,365)
+		5: return game.LEFT_GATE if destination == 0 else (preload("res://scripts/cinder_orchard_layout.gd").HOLLOW_ENTRANCE if destination == 16 else (preload("res://scripts/thornveil_layout.gd").HOLLOW_GATE if destination >= 17 else game.RIGHT_GATE))
+		6: return game.rpg.BOG_TRAIL_POINT if destination >= 11 and destination <= 15 else game.EXPANSE_RETURN_GATE
+		11: return Vector2(1000,365) if destination >= 12 and destination <= 15 else Vector2(145,365)
 		12: return Vector2(1000,365) if destination == 15 else Vector2(145,365)
 		13, 14:
 			var layout = preload("res://scripts/dungeon_layout.gd")
@@ -141,6 +143,13 @@ func target_point() -> Vector2:
 			return layout.stairs(room)
 		15: return preload("res://scripts/dungeon_layout.gd").entry(15)
 		16: return preload("res://scripts/cinder_orchard_layout.gd").EXIT
+	match room:
+		17:
+			return preload("res://scripts/thornveil_layout.gd").APPROACH_TO_HOLLOW if destination < 17 else (preload("res://scripts/thornveil_layout.gd").APPROACH_TO_SHRINE if destination > 17 else preload("res://scripts/thornveil_layout.gd").APPROACH_SPAWN)
+		18:
+			return preload("res://scripts/thornveil_layout.gd").SHRINE_TO_APPROACH if destination < 18 else (preload("res://scripts/thornveil_layout.gd").SHRINE_TO_GLADE if destination > 18 else preload("res://scripts/thornveil_layout.gd").SHRINE_CACHE)
+		19:
+			return preload("res://scripts/thornveil_layout.gd").BOSS if destination == 19 else preload("res://scripts/thornveil_layout.gd").GLADE_TO_SHRINE
 	return Vector2(145,365)
 
 func snapshot() -> Dictionary:

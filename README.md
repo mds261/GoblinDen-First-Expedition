@@ -1,3 +1,7 @@
+# Latest update: Thornveil authored-area upgrade
+
+The northern Thornveil branch now has unique Warden, Poacher, and Seer art and attacks; denser escalating hazards; three persistent root-memory interactions; and its own forest soundtrack and effects. Completing the environmental story cracks the Crown's collar while keeping the boss hard. The supplied Bramble Crown sheet drives twenty boss poses across root snares, thorn volleys, charge, rake, burst, and summon patterns. See [THORNVEIL-ART-AND-BOSS.md](THORNVEIL-ART-AND-BOSS.md).
+
 # Latest update: journal-only hiding and defended objectives
 
 H now hides only the journal button. The useful HUD stays visible, and the floating H box is removed. Normal detection is now 300 pixels with longer pursuit. Supply bundles and the ledger require defeating their nearby defenders. See [HUD-AND-GUARDED-COMBAT.md](HUD-AND-GUARDED-COMBAT.md).

@@ -2,6 +2,7 @@ extends Node2D
 const Data = preload("res://trial/contracts.gd")
 const Starting = preload("res://scripts/starting_caves.gd")
 const Cinder = preload("res://scripts/cinder_orchard_layout.gd")
+const Thornveil = preload("res://scripts/thornveil_layout.gd")
 const Awareness = preload("res://scripts/dungeon_awareness.gd")
 var game: Node2D
 var active: Dictionary = {}
@@ -369,6 +370,8 @@ func target_point() -> Vector2:
 		return game.LEFT_GATE if active.ready else game.RIGHT_GATE
 	if game.current_room == Cinder.ROOM:
 		return Cinder.EXIT
+	if Thornveil.is_thornveil(game.current_room):
+		return game.rpg.boss_hunts.target_point() if game.rpg.boss_hunts.accepted else Thornveil.APPROACH_TO_HOLLOW if game.current_room == Thornveil.APPROACH else (Thornveil.SHRINE_TO_APPROACH if game.current_room == Thornveil.SHRINE else Thornveil.GLADE_TO_SHRINE)
 	if game.current_room!=6:
 		return Vector2(145,365)
 	if active.ready:
@@ -389,6 +392,9 @@ func objective_text() -> String:
 		return hunts.objective()
 	if game.current_room == Cinder.ROOM:
 		return "Cinder Orchard · Final bonus complete" if game.rpg.orchard.bonus_completed else "FINAL BONUS · Cinder Orchard · Reach the eastern kiln"
+	if Thornveil.is_thornveil(game.current_room):
+		var progress: String = game.rpg.thornveil.memory_progress()
+		return "Crown Glade · Root memories %s · Break the Bramble Crown" % progress if game.current_room == Thornveil.GLADE else "Thornveil · Root memories %s · Follow the northern hunter road" % progress
 	if active.is_empty() or active.claimed:
 		return "Speak to Moss · Choose your next expedition [J]"
 	if active.ready:
@@ -406,7 +412,8 @@ func hud_objective_text() -> String:
 		if hunts.is_complete(quest):
 			return "Return to Moss · Claim hunt reward"
 		if game.current_room == int(quest.room):
-			return "Final bonus · Defeat Kilnheart" if quest.get("bonus",false) else "Defeat " + str(preload("res://scripts/design_catalog.gd").display("monsters",str(quest.boss_id))).capitalize()
+			var title := str(preload("res://scripts/design_catalog.gd").display("monsters",str(quest.boss_id))).capitalize()
+			return ("Final bonus · Defeat Kilnheart" if str(quest.boss_id)=="kilnheart" else "Defeat " + title) if quest.get("bonus",false) else "Defeat " + title
 		return "Boss hunt · " + str(quest.name)
 	return objective_text()
 
@@ -432,6 +439,8 @@ func on_room_entered() -> void:
 			line = str(active.get("weather","Clear"))+" over Thornwood · "+str(weather_profile().blurb)
 		elif game.current_room == Cinder.ROOM:
 			line = "Charcoal, not timber. The heat here is awake."
+		elif Thornveil.is_thornveil(game.current_room):
+			line = "The hunter road ends in antlers. Keep off the thorn rings."
 		elif game.current_room!=0:
 			line = "Stay low. Humans still mark these stones."
 		ui.announce(heading, line)

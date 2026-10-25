@@ -168,6 +168,21 @@
       "hint": "Extreme danger. Dodge lethal vents and sweeping heat. Strike the exposed heart. Leaving the kiln for 2.5 seconds or leaving the Orchard restores Kilnheart.",
       "reward_scrap": 220,
       "reward_xp": 900
+    },
+    {
+      "id": "hunt_bramble_crown",
+      "name": "Crown of the Northern Grove",
+      "boss_hunt": true,
+      "bonus": true,
+      "boss_id": "bramble_crown",
+      "room": 19,
+      "x": 1088,
+      "y": 640,
+      "destination": "Thornwood Hollow → north gate → Approach → Shrine → Crown Glade",
+      "description": "A new threat wears the hunters' collars. Follow the northern hollow into Thornveil and break the Bramble Crown.",
+      "hint": "Sidestep the gore line, strafe across thorn volleys, keep moving through root snares, step inside the crown burst, and cut the hide when it staggers.",
+      "reward_scrap": 140,
+      "reward_xp": 420
     }
   ]
 }

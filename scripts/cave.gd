@@ -5,6 +5,7 @@ extends Node2D
 const Starting = preload("res://scripts/starting_caves.gd")
 const DungeonLayout = preload("res://scripts/dungeon_layout.gd")
 const Cinder = preload("res://scripts/cinder_orchard_layout.gd")
+const Thornveil = preload("res://scripts/thornveil_layout.gd")
 const BACKGROUND = preload("res://assets/cave.png")
 const ROOTVEIN_BACKGROUND = preload("res://assets/cave_rootvein_grotto.png")
 const CAVE_MOUTH_BACKGROUND = preload("res://assets/cave_mouth.png")
@@ -145,7 +146,7 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	if room_index==0 or DungeonLayout.is_dungeon(room_index) or room_index == Cinder.ROOM:
+	if room_index==0 or DungeonLayout.is_dungeon(room_index) or room_index == Cinder.ROOM or Thornveil.is_thornveil(room_index):
 		return
 	var safe_index := clampi(room_index, 0, BACKGROUNDS.size() - 1)
 	var world_size := world_size_for_room()
@@ -316,6 +317,10 @@ func _rebuild_navigation() -> void:
 				blocked = blocked or not Cinder.walkable(point)
 				for clearance in [Vector2(-22,-22),Vector2(22,-22),Vector2(-22,22),Vector2(22,22)]:
 					blocked = blocked or not Cinder.walkable(point+clearance)
+			if Thornveil.is_thornveil(room_index):
+				blocked = not Thornveil.walkable(point, room_index)
+				for clearance in [Vector2(-22,-22),Vector2(22,-22),Vector2(-22,22),Vector2(22,22)]:
+					blocked = blocked or not Thornveil.walkable(point+clearance, room_index)
 			var near_bridge := room_index == EXPANSE_ROOM_INDEX and Rect2(900, 525, 270, 110).has_point(point * ExpanseGeometry.SOURCE_SIZE / EXPANSE_WORLD_SIZE)
 			var obstacles := bridge_navigation_obstacles if near_bridge else navigation_obstacles
 			for polygon in obstacles:
@@ -365,4 +370,6 @@ func world_size_for_room() -> Vector2:
 		return DungeonLayout.SIZE
 	if room_index == Cinder.ROOM:
 		return Cinder.SIZE
+	if Thornveil.is_thornveil(room_index):
+		return Thornveil.SIZE
 	return EXPANSE_WORLD_SIZE if room_index == EXPANSE_ROOM_INDEX else STANDARD_WORLD_SIZE

@@ -116,6 +116,7 @@ func _ready() -> void:
 		restored_save = SaveData.load_data(self)
 	rpg.dungeon.populate()
 	rpg.orchard.populate()
+	rpg.thornveil.populate()
 	if restored_save:
 		_spawn_large_enemies()
 		_populate_campaign_enemies(campaign_index)
@@ -298,6 +299,8 @@ func spawn_enemy_ext(room_index: int, point: Vector2, title: String, health: int
 	enemy.defeated.connect(on_enemy_defeated.bind(enemy, room_index))
 
 func enter_room(index: int, spawn_point: Vector2, world_spawn: bool = false) -> void:
+	if rpg != null and rpg.thornveil != null and preload("res://scripts/thornveil_layout.gd").is_thornveil(current_room) and index != current_room:
+		rpg.thornveil.reset_room_on_exit(current_room)
 	if Starting.connected(index):
 		spawn_point = spawn_point if world_spawn else Starting.point(index,spawn_point)
 		index = 0
@@ -372,6 +375,12 @@ func _configure_camera_for_room(index: int) -> void:
 		camera.limit_top = 0
 		camera.limit_right = int(Cinder.SIZE.x)
 		camera.limit_bottom = int(Cinder.SIZE.y)
+	elif preload("res://scripts/thornveil_layout.gd").is_thornveil(index):
+		var veil = preload("res://scripts/thornveil_layout.gd")
+		camera.limit_left = 0
+		camera.limit_top = 0
+		camera.limit_right = int(veil.SIZE.x)
+		camera.limit_bottom = int(veil.SIZE.y)
 	elif index >= 13:
 		camera.limit_left = 0
 		camera.limit_top = 0
@@ -1048,6 +1057,10 @@ func refresh_objective() -> void:
 		return
 	if current_room == Cinder.ROOM:
 		objective.text = "Cinder Orchard · Optional heat under the hollow"
+		return
+	if preload("res://scripts/thornveil_layout.gd").is_thornveil(current_room):
+		var memory_count: String = rpg.thornveil.memory_progress()
+		objective.text = {17: "Thornveil Approach · Root memories %s · Follow the hunter road east" % memory_count, 18: "Thornveil Shrine · Root memories %s · North climbs to the Crown" % memory_count, 19: "Crown Glade · Root memories %s · Break the Bramble Crown" % memory_count}.get(current_room, "Thornveil")
 		return
 	if current_room >= 13:
 		objective.text = rpg.dungeon.objective(current_room)

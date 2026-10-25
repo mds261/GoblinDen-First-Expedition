@@ -645,6 +645,66 @@
       "kind": "boss",
       "role": "kilnheart",
       "id": "kilnheart"
+    },
+    {
+      "name": "THORNVEIL WARDEN",
+      "hp": 160,
+      "speed": 96.0,
+      "damage": 16,
+      "scrap": 8,
+      "xp": 55,
+      "loot": "",
+      "kind": "human",
+      "role": "rogue",
+      "id": "thornveil_warden"
+    },
+    {
+      "name": "THORNVEIL POACHER",
+      "hp": 140,
+      "speed": 108.0,
+      "damage": 14,
+      "scrap": 7,
+      "xp": 50,
+      "loot": "",
+      "kind": "human",
+      "role": "ranger",
+      "id": "thornveil_poacher"
+    },
+    {
+      "name": "THORNVEIL SEER",
+      "hp": 150,
+      "speed": 88.0,
+      "damage": 18,
+      "scrap": 8,
+      "xp": 58,
+      "loot": "",
+      "kind": "human",
+      "role": "mage",
+      "id": "thornveil_seer"
+    },
+    {
+      "name": "THORNLING",
+      "hp": 36,
+      "speed": 130.0,
+      "damage": 8,
+      "scrap": 1,
+      "xp": 6,
+      "loot": "",
+      "kind": "thornveil",
+      "role": "thornling",
+      "id": "thornling"
+    },
+    {
+      "name": "BRAMBLE CROWN",
+      "hp": 2200,
+      "speed": 96,
+      "damage": 38,
+      "scrap": 28,
+      "xp": 160,
+      "loot": "",
+      "kind": "boss",
+      "role": "bramble_crown",
+      "id": "bramble_crown"
     }
   ]
 }
