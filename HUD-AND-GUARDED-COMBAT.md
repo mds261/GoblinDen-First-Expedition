@@ -1,4 +1,4 @@
-# Journal control, consistent HUD, and close-range combat
+# Journal control, consistent HUD, and aggressive combat
 
 Restart the running game to load this update. It is applied to both Godot project copies, with save progress retained.
 
@@ -14,7 +14,7 @@ Restart the running game to load this update. It is applied to both Godot projec
 
 ## Combat and aggro
 
-Normal detection is **150 pixels**, down from 250. Weather modifies it to about 162 in clear weather, 99 in mist, and 129 in rain. Walls still block sight, and attacking a guard still alerts it. An engaged enemy returns when it moves more than 280 pixels from home, or its target moves more than 360 pixels from that home. Ash Wisps also use a 150-pixel home leash.
+Normal detection is now **300 pixels**, twice the briefly reduced value. Weather modifies it to about 324 in clear weather, 198 in mist, and 258 in rain. Walls still block sight, and attacking a guard still alerts it. An engaged enemy can pursue up to 440 pixels from home while tracking a target up to 520 pixels away, and it searches for 3.5 seconds after losing sight.
 
 Challenge now comes from defended objectives:
 
@@ -24,8 +24,8 @@ Challenge now comes from defended objectives:
 - Hunter's Tracks still requires defeating all three targets. The optional Watcher's cache still requires defeating its Watcher.
 - Defeated guards and already-collected objectives stay recorded across reloads. Older in-progress expeditions retain their collected cargo and completed kills.
 
-Travel routes remain open; combat is required at mission objectives rather than enforced by distant enemy detection. The extreme final Cinder bonus remains after all nine main hunts.
+Travel routes remain open, but the much wider detection and pursuit ranges make slipping past visible patrols unreliable. Combat is also required at mission objectives. The extreme final Cinder bonus remains after all nine main hunts.
 
 ## Verification
 
-Checks cover journal-only hiding, independent map controls, shared toolbar dimensions and typography, saved preferences, restart, short-range detection, blocked sight, retreat, guarded pickups, all contract types across three seeds, and reload behavior. Screenshots of the HUD with the journal hidden/shown, guarded supplies, Cinder, the field journal, pause menu, and opening selection were rendered and inspected.
+Checks cover journal-only hiding, independent map controls, shared toolbar dimensions and typography, saved preferences, restart, boosted detection and pursuit, blocked sight, retreat, guarded pickups, all contract types across three seeds, and reload behavior. Screenshots of the HUD with the journal hidden/shown, guarded supplies, Cinder, the field journal, pause menu, and opening selection were rendered and inspected.

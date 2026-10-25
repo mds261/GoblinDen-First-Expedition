@@ -1,12 +1,12 @@
-# Shorter aggro and the final Cinder bonus
+# Stronger aggro and the final Cinder bonus
 
 Restart the running game to load the changes. Existing saves remain usable.
 
 ## Enemy awareness
 
-Normal guards and hunt enemies now detect a nearby visible player at **250 pixels**, down from 350. Weather still modifies that radius: clear weather reaches about 270 pixels, mist about 165, and rain about 215. Walls still block sight. Damaging a guard still alerts it.
+Normal guards and hunt enemies now detect a visible player at **300 pixels**. Weather modifies that radius: clear weather reaches about 324 pixels, mist about 198, and rain about 258. Walls still block sight. Damaging a guard still alerts it.
 
-Pursuit is shorter too: an enemy returns when it moves more than 360 pixels from home, or its target moves more than 460 pixels from that home. Losing sight for 2 seconds ends pursuit. Companions still avoid pulling idle guards.
+Pursuit is deliberately tenacious: an enemy returns only after it moves more than 440 pixels from home, or its target moves more than 520 pixels from that home. It searches for 3.5 seconds after losing sight. Companions still avoid independently pulling idle guards.
 
 Cinder Mites react within 144 pixels instead of 168. Ash Wisps keep to a 180-pixel home leash instead of 210.
 

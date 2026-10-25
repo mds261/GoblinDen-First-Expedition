@@ -1,9 +1,9 @@
 extends RefCounted
 ## Local perception for dungeon guards. There is no floor-wide alarm.
-const NOTICE_RADIUS := 150.0
-const HOME_LEASH := 280.0
-const TARGET_LEASH := 360.0
-const LOST_SIGHT_SECONDS := 2.0
+const NOTICE_RADIUS := 300.0
+const HOME_LEASH := 440.0
+const TARGET_LEASH := 520.0
+const LOST_SIGHT_SECONDS := 3.5
 var home := Vector2.ZERO
 var state := "idle"
 var unseen_time := 0.0

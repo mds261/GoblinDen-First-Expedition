@@ -1,10 +1,10 @@
 # Latest update: journal-only hiding and defended objectives
 
-H now hides only the journal button. The useful HUD stays visible, and the floating H box is removed. Normal detection is now 150 pixels. Supply bundles and the ledger require defeating their nearby defenders. See [HUD-AND-GUARDED-COMBAT.md](HUD-AND-GUARDED-COMBAT.md).
+H now hides only the journal button. The useful HUD stays visible, and the floating H box is removed. Normal detection is now 300 pixels with longer pursuit. Supply bundles and the ledger require defeating their nearby defenders. See [HUD-AND-GUARDED-COMBAT.md](HUD-AND-GUARDED-COMBAT.md).
 
-# Latest update: shorter aggro and the final Cinder bonus
+# Latest update: stronger aggro and the final Cinder bonus
 
-Enemy detection and pursuit are shorter. Complete Moss's nine main boss hunts, then accept **Cinder Orchard · The Last Ember** as the final extreme-difficulty bonus quest. Existing saves and earlier Cinder credit are preserved. See [AGGRO-AND-CINDER-BONUS.md](AGGRO-AND-CINDER-BONUS.md) for details.
+Enemy detection and pursuit are substantially stronger, so visible patrols are difficult to bypass. Complete Moss's nine main boss hunts, then accept **Cinder Orchard · The Last Ember** as the final extreme-difficulty bonus quest. Existing saves and earlier Cinder credit are preserved. See [AGGRO-AND-CINDER-BONUS.md](AGGRO-AND-CINDER-BONUS.md) for details.
 
 # Latest update: combat balance
 

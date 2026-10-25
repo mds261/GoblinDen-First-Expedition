@@ -42,19 +42,15 @@ func run() -> void:
 		if actor.get("dungeon_awareness") != null:
 			guards.append(actor)
 	var home: Vector2 = guards[0].position
-	game.player.position = home-Vector2(330,0)
+	game.player.position = home-Vector2(340,0)
 	await physics_frame
 	guards[0]._physics_process(0.016)
-	check(guards[0].dungeon_awareness.state=="idle","Guard stays idle at the old distant detection range")
+	check(guards[0].dungeon_awareness.state=="idle","Guard stays idle just beyond the boosted clear-weather detection range")
 	guards[0].dungeon_awareness.notice_scale = 1.08
-	game.player.position = home-Vector2(200,0)
+	game.player.position = home-Vector2(300,0)
 	await physics_frame
 	guards[0]._physics_process(0.016)
-	check(guards[0].dungeon_awareness.state=="idle","Clear-weather guard stays idle at 200 pixels")
-	game.player.position = home-Vector2(125,0)
-	await physics_frame
-	guards[0]._physics_process(0.016)
-	check(guards[0].dungeon_awareness.state=="engaged","Guard detects a nearby player inside the shorter radius")
+	check(guards[0].dungeon_awareness.state=="engaged","Clear-weather guard detects a visible player from 300 pixels")
 	guards[0].position = home
 	guards[0].dungeon_awareness.configure(guards[0])
 	game.player.position = Vector2(1000,320)
@@ -69,7 +65,7 @@ func run() -> void:
 	for guard in guards:
 		if guard.dungeon_awareness.state=="engaged":
 			engaged += 1
-	check(engaged==1,"Entering a nearby guard's view engages it without alarming the entire floor")
+	check(engaged>=1 and engaged<guards.size(),"Boosted sight engages the nearby guard cluster without creating a floor-wide alarm")
 	check(ally._choose_enemy_target(game.player)==guards[0],"Companions help against the nearby engaged guard")
 	var guard = guards[0]
 	# Both endpoints are open floor; the wall between adjacent chambers blocks sight.
@@ -110,6 +106,6 @@ func run() -> void:
 	game.queue_free()
 	await process_frame
 	load("res://scripts/save_data.gd").delete_save()
-	print("Dungeon local aggro, sight, retreat and companion checks; failures: %d" % failures)
+	print("Dungeon boosted aggro, sight, pursuit and companion checks; failures: %d" % failures)
 	await create_timer(0.25).timeout
 	quit(1 if failures else 0)
