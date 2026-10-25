@@ -149,16 +149,17 @@ func draw_compass() -> void:
 	if director.ui.overlay.visible:
 		return
 	var game = director.game
-	var plate := Rect2(20, 142, 318, 46)
-	compass.draw_rect(plate, Color(0.025, 0.042, 0.036, 0.9))
-	compass.draw_rect(plate, Color(0.5, 0.43, 0.29, 0.8), false, 1.0)
-	var point := Vector2(48, 165)
+	var plate := Rect2(20, 126, 318, 46)
+	compass.draw_style_box(preload("res://trial/look.gd").hud_frame(),plate)
+	var point := Vector2(48, 149)
 	var direction: Vector2 = game.player.position.direction_to(director.target_point())
 	compass.draw_circle(point, 16, Color(0.02, 0.05, 0.04, 0.92))
 	compass.draw_arc(point, 16, 0, TAU, 32, Color("8f7951"), 1.2, true)
 	var side := direction.orthogonal()
 	compass.draw_colored_polygon(PackedVector2Array([point+direction*12, point-direction*7+side*4, point-direction*3, point-direction*7-side*4]), GOLD)
 	var weather := str(director.active.get("weather","Clear")) if not director.active.is_empty() and not director.active.get("claimed",false) else "Haven"
-	compass.draw_string(ThemeDB.fallback_font, Vector2(74, 158), "%d paces  ·  %s  ·  %d scrap" % [director.paces(), weather.to_upper(), director.game.scrap], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("f3e6c8"))
+	if game.rpg.boss_hunts.accepted:
+		weather = "Boss hunt"
+	compass.draw_string(ThemeDB.fallback_font, Vector2(74, 142), "%d paces  ·  %s  ·  %d scrap" % [director.paces(), weather.to_upper(), director.game.scrap], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("f3e6c8"))
 	var extra := "Streak %d" % director.combo if director.combo >= 2 else "Follow the gold needle"
-	compass.draw_string(ThemeDB.fallback_font, Vector2(74, 176), extra, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, GOLD)
+	compass.draw_string(ThemeDB.fallback_font, Vector2(74, 160), extra, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, GOLD)

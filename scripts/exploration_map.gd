@@ -2,6 +2,7 @@ extends Node2D
 ## Persistent fog-of-exploration. Terrain and landmarks reveal through actual sight lines.
 const Starting = preload("res://scripts/starting_caves.gd")
 const Layout = preload("res://scripts/dungeon_layout.gd")
+const Cinder = preload("res://scripts/cinder_orchard_layout.gd")
 const Den = preload("res://scripts/den_layout.gd")
 const CELL := 48.0
 const SIGHT := 192.0
@@ -22,15 +23,20 @@ func _ready() -> void:
 	layer.layer = 4
 	add_child(layer)
 	canvas = Node2D.new()
-	canvas.position = Vector2(918,56)
+	canvas.position = Vector2(932,60)
 	canvas.draw.connect(func(): _draw_map())
 	layer.add_child(canvas)
 	toggle = Button.new()
-	toggle.position = Vector2(918,18)
-	toggle.custom_minimum_size = Vector2(78,28)
+	toggle.position = Vector2(866,18)
+	preload("res://trial/look.gd").toolbar(toggle,80)
 	toggle.text = "Map [M]"
 	toggle.pressed.connect(_toggle)
 	layer.add_child(toggle)
+	sync_visibility()
+
+func sync_visibility() -> void:
+	canvas.visible = shown
+
 func _toggle() -> void:
 	shown = not shown
 	canvas.visible = shown
@@ -41,6 +47,7 @@ func _input(event: InputEvent) -> void:
 		_toggle()
 		get_viewport().set_input_as_handled()
 func _physics_process(delta: float) -> void:
+	sync_visibility()
 	if get_tree().paused or game.player.hp<=0:
 		return
 	scan_timer -= delta
@@ -122,6 +129,13 @@ func _markers() -> Array:
 			result.append({"id":"station_%d"%int(station.cell),"point":station.pos,"type":"treasure"})
 	if room_id>=1 and room_id<=5:
 		result.append({"id":"back","point":Vector2(140,365),"type":"route"})
+	if room_id==5:
+		result.append({"id":"cinder_crack","point":Cinder.HOLLOW_ENTRANCE,"type":"route"})
+	if room_id==Cinder.ROOM:
+		result.append({"id":"cinder_return","point":Cinder.EXIT,"type":"route"})
+		result.append({"id":"cinder_kiln","point":Cinder.BOSS,"type":"treasure"})
+		if not rpg.orchard.cache_taken:
+			result.append({"id":"cinder_cache","point":Cinder.CACHE,"type":"treasure"})
 	if room_id>0 and room_id<6:
 		result.append({"id":"forward","point":Vector2(1010,365),"type":"route"})
 	if room_id==6:
@@ -153,6 +167,7 @@ func restore(state: Dictionary) -> void:
 	shown = bool(state.get("shown",true))
 	canvas.visible = shown
 	toggle.text = "Map [M]" if shown else "Map [M]"
+	sync_visibility()
 	last_room = -1
 	scan_timer = 0
 	canvas.queue_redraw()
@@ -161,7 +176,7 @@ func _draw_map() -> void:
 	var size: Vector2 = game.get_node("Cave").world_size_for_room()
 	var factor := minf(186.0/size.x,120.0/size.y)
 	var offset := Vector2(0,22)
-	canvas.draw_rect(Rect2(-10,-3,210,153),Color(0.015,0.025,0.03,0.96))
+	canvas.draw_style_box(preload("res://trial/look.gd").hud_frame(),Rect2(-10,-3,210,153))
 	var title := "FLOOR %d / 3"%(room_id-12) if Layout.is_dungeon(room_id) else "LOCAL AREA"
 	canvas.draw_string(ThemeDB.fallback_font,Vector2(0,13),title+"",HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("dccca5"))
 	canvas.draw_rect(Rect2(offset,size*factor),Color("080b0e"))
@@ -185,4 +200,3 @@ func _draw_map() -> void:
 	var player_point: Vector2 = offset+game.player.position*factor
 	canvas.draw_circle(player_point,3.5,Color("5ce6ef"))
 	canvas.draw_line(player_point,player_point+game.player.facing.normalized()*8,Color("b4faff"),2,true)
-	canvas.draw_rect(Rect2(-10,-3,210,153),Color("756342"),false,1)

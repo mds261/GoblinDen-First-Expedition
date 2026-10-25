@@ -97,6 +97,13 @@ func run() -> void:
 				for entry in game.expedition.objects():
 					if entry.kind=="cache":
 						game.player.position = entry.point
+						check(not game.expedition.interact_object(entry.id),"Cannot sneak past objective defenders")
+						for guard_id in game.expedition.defenders_for(str(entry.id)):
+							for enemy in get_nodes_in_group("enemies"):
+								if str(enemy.get_meta("expedition_id","")) == str(guard_id):
+									enemy.take_damage(9999)
+									if not game.expedition.defenders_for(str(entry.id)).is_empty():
+										check(not game.expedition.interact_object(entry.id),"Every camp defender must be defeated")
 						check(game.expedition.interact_object(entry.id),"Resolve objective")
 			check(game.expedition.active.ready,"Contract complete")
 			check(not game.expedition.claim(),"Cannot claim reward remotely")

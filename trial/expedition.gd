@@ -1,6 +1,7 @@
 extends Node2D
 const Data = preload("res://trial/contracts.gd")
 const Starting = preload("res://scripts/starting_caves.gd")
+const Cinder = preload("res://scripts/cinder_orchard_layout.gd")
 const Awareness = preload("res://scripts/dungeon_awareness.gd")
 var game: Node2D
 var active: Dictionary = {}
@@ -17,6 +18,7 @@ var ui: CanvasLayer
 var scenery: Node2D
 var save_clock := 0.0
 var initialized := false
+var journal_hidden := true
 
 func _ready() -> void:
 	ui = preload("res://trial/expedition_ui.gd").new()
@@ -36,9 +38,10 @@ func _ready() -> void:
 		ui.announce("HEARTH HALL", "A fire worth coming home to")
 
 func snapshot() -> Dictionary:
-	return {"version":2,"active":active.duplicate(true),"serial":serial,"completions":completions,"upgrades":upgrades.duplicate(),"last_summary":last_summary.duplicate(true),"welcomed":welcomed,"rite_id":rite_id,"best_combo":best_combo}
+	return {"journal_hidden":journal_hidden,"version":2,"active":active.duplicate(true),"serial":serial,"completions":completions,"upgrades":upgrades.duplicate(),"last_summary":last_summary.duplicate(true),"welcomed":welcomed,"rite_id":rite_id,"best_combo":best_combo}
 
 func restore(state: Dictionary) -> void:
+	journal_hidden = bool(state.get("journal_hidden",state.get("hud_collapsed",true)))
 	active = state.get("active",{}).duplicate(true)
 	serial = int(state.get("serial",0))
 	completions = int(state.get("completions",0))
@@ -90,9 +93,12 @@ func begin(kind: int, seed_override: int = -1) -> bool:
 		if arg.begins_with("--expedition-seed="):
 			chosen_seed = int(arg.get_slice("=",1)) + serial - 1
 	active = Data.generate(kind, chosen_seed, serial)
+	# Freeze a bounded danger rank for this expedition; reloads do not reroll it.
+	active["threat"] = mini(5,int(completions / 2) + int(game.rpg.boss_hunts.completed_count() / 3))
 	welcomed = true
 	game.potions = game.max_potions
 	game.player.heal(game.player.max_hp)
+	game.rpg.refill_stamina()
 	populate()
 	game._auto_save()
 	ui.close()
@@ -113,9 +119,9 @@ func clear_encounters() -> void:
 func spawn(id: String, room: int, at: Vector2, role: String, elite: bool = false) -> void:
 	if id in active.defeated:
 		return
-	var hp := 105 if elite else 55 + mini(completions,4)*8
+	var stats := Data.encounter_stats(int(active.get("threat",mini(5,int(completions / 2)))),elite)
 	var title := "THORNWOOD WATCHER" if elite else "TRAIL " + role.to_upper()
-	game.spawn_enemy_ext(room,at,title,hp,82 if elite else 92,12 if elite else 7,7 if elite else 3,role,25,"","",true)
+	game.spawn_enemy_ext(room,at,title,int(stats.hp),float(stats.speed),int(stats.damage),7 if elite else 3,role,25,"","",true)
 	var enemy = game.rooms[room].get_child(game.rooms[room].get_child_count()-1)
 	enemy.set_meta("expedition_id",id)
 	enemy.set_meta("expedition_elite",elite)
@@ -136,10 +142,14 @@ func populate() -> void:
 			spawn("target_%d"%i,6,sites[i],active.roles[i])
 	elif int(active.kind)==2:
 		var flank := -1.0 if int(active.flank)==0 else 1.0
-		spawn("camp_watch_a",6,sites[0]+Vector2(110*flank,70),"knight")
-		spawn("camp_watch_b",6,sites[0]+Vector2(200*flank,-65),"ranger")
+		if not "ledger" in active.taken:
+			spawn("camp_watch_a",6,sites[0]+Vector2(48*flank,40),"knight")
+			spawn("camp_watch_b",6,sites[0]+Vector2(-48*flank,40),"ranger")
 	else:
-		spawn("cache_watch",6,sites[1]+Vector2(100,45),active.roles[0])
+		for index in range(3):
+			if not "cache_%d" % index in active.taken:
+				var guard_id := "cache_watch" if index == 1 else "supply_watch_%d" % index
+				spawn(guard_id,6,sites[index]+Vector2(48,40),str(active.roles[index]))
 	spawn("bonus_watch",6,Data.BONUS+Vector2(90,-25),"knight",true)
 	if int(active.event)==0 and not "event" in active.taken:
 		var scout = preload("res://scripts/friendly_npc.gd").new()
@@ -205,10 +215,28 @@ func candidates() -> Array:
 	var result: Array = []
 	for entry in objects():
 		if entry.room==game.current_room and not entry.id in active.taken:
-			result.append({"point":entry.point,"radius":85.0,"label":entry.label,"action":interact_object.bind(entry.id)})
+			var defenders := defenders_for(str(entry.id))
+			var label: String = str(entry.label)
+			if not defenders.is_empty():
+				var item := "ledger" if entry.id == "ledger" else ("Watcher cache" if entry.id == "bonus" else "supplies")
+				label = "Guarded %s · Defeat %d defender%s" % [item,defenders.size(),"s" if defenders.size()>1 else ""]
+			result.append({"point":entry.point,"radius":85.0,"label":label,"ready":defenders.is_empty(),"action":interact_object.bind(entry.id)})
 	if not active.is_empty() and active.ready and not active.claimed and game.current_room==6:
 		result.append({"point":Vector2(700,350),"radius":85.0,"label":"Take Moss's hidden trail home","action":shortcut})
 	return result
+
+func defenders_for(id: String) -> Array:
+	if active.is_empty():
+		return []
+	var required: Array = []
+	if id == "bonus":
+		required = ["bonus_watch"]
+	elif int(active.kind) == 0 and id.begins_with("cache_"):
+		var index := int(id.get_slice("_",1))
+		required = ["cache_watch" if index == 1 else "supply_watch_%d" % index]
+	elif int(active.kind) == 2 and id == "ledger":
+		required = ["camp_watch_a","camp_watch_b"]
+	return required.filter(func(guard_id): return not guard_id in active.defeated)
 
 func interact_object(id: String) -> bool:
 	if active.is_empty() or active.claimed or id in active.taken:
@@ -219,8 +247,8 @@ func interact_object(id: String) -> bool:
 			entry = item
 	if entry.is_empty() or entry.room!=game.current_room or game.player.position.distance_to(entry.point)>90:
 		return false
-	if id=="bonus" and not "bonus_watch" in active.defeated:
-		game.show_notice("The Watcher holds this cache. Defeat it, or return with your secured supplies.")
+	if not defenders_for(id).is_empty():
+		game.show_notice("This objective is guarded. Defeat its defenders before taking the supplies.")
 		return false
 	if id=="event":
 		ui.open("event")
@@ -317,7 +345,7 @@ func buy(id: String) -> bool:
 	if not home() or not upgrades.has(id):
 		return false
 	var rank := int(upgrades[id])
-	var cost := 28 + rank*18
+	var cost := Data.upgrade_cost(rank)
 	if rank >= (2 if id=="pouch" else 3) or game.scrap<cost:
 		return false
 	game.scrap -= cost
@@ -331,12 +359,16 @@ func buy(id: String) -> bool:
 	return true
 
 func target_point() -> Vector2:
+	if game.rpg.boss_hunts.accepted:
+		return game.rpg.boss_hunts.target_point()
 	if active.is_empty() or active.claimed:
 		return moss_position() if game.current_room==0 else game._left_gate_position()
 	if game.current_room==0:
 		return moss_position() if active.ready else Starting.EXIT
 	if game.current_room==5:
 		return game.LEFT_GATE if active.ready else game.RIGHT_GATE
+	if game.current_room == Cinder.ROOM:
+		return Cinder.EXIT
 	if game.current_room!=6:
 		return Vector2(145,365)
 	if active.ready:
@@ -352,15 +384,31 @@ func paces() -> int:
 	return int(game.player.position.distance_to(target_point()) / 10.0)
 
 func objective_text() -> String:
+	var hunts = game.rpg.boss_hunts
+	if hunts.accepted:
+		return hunts.objective()
+	if game.current_room == Cinder.ROOM:
+		return "Cinder Orchard · Final bonus complete" if game.rpg.orchard.bonus_completed else "FINAL BONUS · Cinder Orchard · Reach the eastern kiln"
 	if active.is_empty() or active.claimed:
 		return "Speak to Moss · Choose your next expedition [J]"
 	if active.ready:
-		return "Supplies secured · Return to Moss, or seek the bonus cache"
+		return "Contract complete · Return to Moss, or seek the bonus cache"
 	var progress := 0
 	for i in range(3):
 		if "cache_%d"%i in active.taken or "target_%d"%i in active.defeated:
 			progress += 1
-	return "%s · %s"%[Data.CONTRACTS[int(active.kind)].name,"Find the scouting ledger" if int(active.kind)==2 else "%d / 3 recovered"%progress]
+	return "%s · %s"%[Data.CONTRACTS[int(active.kind)].name,"Find the scouting ledger" if int(active.kind)==2 else ("%d / 3 defeated"%progress if int(active.kind)==1 else "%d / 3 recovered"%progress)]
+
+func hud_objective_text() -> String:
+	var hunts = game.rpg.boss_hunts
+	if hunts.accepted:
+		var quest: Dictionary = hunts.current()
+		if hunts.is_complete(quest):
+			return "Return to Moss · Claim hunt reward"
+		if game.current_room == int(quest.room):
+			return "Final bonus · Defeat Kilnheart" if quest.get("bonus",false) else "Defeat " + str(preload("res://scripts/design_catalog.gd").display("monsters",str(quest.boss_id))).capitalize()
+		return "Boss hunt · " + str(quest.name)
+	return objective_text()
 
 func on_room_entered() -> void:
 	if initialized:
@@ -382,6 +430,8 @@ func on_room_entered() -> void:
 			line = "The hollow remembers every rider who passed"
 		elif game.current_room==6:
 			line = str(active.get("weather","Clear"))+" over Thornwood · "+str(weather_profile().blurb)
+		elif game.current_room == Cinder.ROOM:
+			line = "Charcoal, not timber. The heat here is awake."
 		elif game.current_room!=0:
 			line = "Stay low. Humans still mark these stones."
 		ui.announce(heading, line)

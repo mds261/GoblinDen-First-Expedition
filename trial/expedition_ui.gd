@@ -8,6 +8,7 @@ var director: Node2D
 var overlay: ColorRect
 var panel: PanelContainer
 var body: VBoxContainer
+var scroll: ScrollContainer
 var title: Label
 var subtitle: Label
 var banner: VBoxContainer
@@ -45,9 +46,14 @@ func _ready() -> void:
 	panel.size = Vector2(800,540)
 	panel.add_theme_stylebox_override("panel", Look.panel(false))
 	overlay.add_child(panel)
+	scroll = ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	panel.add_child(scroll)
 	body = VBoxContainer.new()
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation",14)
-	panel.add_child(body)
+	scroll.add_child(body)
 	overlay.hide()
 	letter_top = ColorRect.new()
 	letter_top.color = Color(0.01,0.02,0.02,0.82)
@@ -81,12 +87,22 @@ func _ready() -> void:
 	subtitle.add_theme_constant_override("shadow_offset_y",2)
 	banner.add_child(subtitle)
 	journal_button = Button.new()
-	journal_button.text = "Field journal [J]"
-	journal_button.position = Vector2(354,142)
-	journal_button.size = Vector2(196,34)
+	journal_button.text = "Journal [J]"
+	journal_button.tooltip_text = "Field journal [J] · H hides only this button"
+	journal_button.position = Vector2(742,18)
 	journal_button.pressed.connect(func(): open("journal"))
-	Look.dress(journal_button)
+	Look.toolbar(journal_button,116)
 	add_child(journal_button)
+	refresh_hud()
+
+func refresh_hud() -> void:
+	journal_button.visible = not get_tree().paused and not director.journal_hidden
+	director.game.rpg.exploration_map.sync_visibility()
+
+func toggle_journal_shortcut() -> void:
+	director.journal_hidden = not director.journal_hidden
+	refresh_hud()
+	director.game._auto_save()
 
 func line(text: String, size_px: int = 16, color: Color = PALE, parent: Node = null) -> Label:
 	var label := Label.new()
@@ -115,12 +131,12 @@ func open(page: String = "board") -> void:
 	for child in body.get_children():
 		body.remove_child(child)
 		child.queue_free()
-	panel.size = Vector2(800,0)
+	panel.size = Vector2(1080,680) if page=="welcome" else Vector2(852,592)
+	scroll.scroll_vertical = 0
 	cover.visible = page=="welcome"
-	panel.position = Vector2(36,12) if page=="welcome" else Vector2(150,64)
-	panel.size.x = 520 if page=="welcome" else 852
-	panel.add_theme_stylebox_override("panel", Look.panel(page=="welcome", 12 if page=="welcome" else 20))
-	body.add_theme_constant_override("separation", 4 if page=="welcome" else 12)
+	panel.position = Vector2(36,20) if page=="welcome" else Vector2(150,64)
+	panel.add_theme_stylebox_override("panel", Look.panel(false, 16 if page=="welcome" else 20))
+	body.add_theme_constant_override("separation", 6 if page=="welcome" else 12)
 	var game = director.game
 	var active: Dictionary = director.active
 	line("A   G O B L I N ' S   J O U R N E Y" if page=="welcome" else "G O B L I N D E N   /   F I R S T   E X P E D I T I O N",12,GOLD)
@@ -131,7 +147,7 @@ func open(page: String = "board") -> void:
 			line("The supplies are gone. Follow Thornwood, bring something home, and keep the fire.",14,MUTED)
 			line("Choose the goblin you will be.",15,GOLD)
 			var rites := GridContainer.new()
-			rites.columns = 2
+			rites.columns = 4
 			rites.add_theme_constant_override("h_separation",10)
 			rites.add_theme_constant_override("v_separation",8)
 			body.add_child(rites)
@@ -145,23 +161,23 @@ func open(page: String = "board") -> void:
 				shell.add_child(card)
 				var portrait := TextureRect.new()
 				portrait.texture = portraits.get(rite.id)
-				portrait.custom_minimum_size = Vector2(0,42)
+				portrait.custom_minimum_size = Vector2(0,200)
 				portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-				portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+				portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 				card.add_child(portrait)
-				line(rite.title.to_upper(),13,GOLD if chosen else PALE,card)
+				line(rite.title.to_upper() + (" · SELECTED" if chosen else ""),16,GOLD if chosen else PALE,card)
 				var blurb := line(rite.line,12,MUTED,card)
-				blurb.custom_minimum_size.y = 32
-				button("Take the %s rite"%rite.title, take_rite.bind(rite.id), card, false, 32)
-			line("WASD move  ·  E interact  ·  then speak to Moss by the fire.",13,MUTED)
+				blurb.custom_minimum_size.y = 62
+				button("Selected" if chosen else "Choose %s"%rite.title, take_rite.bind(rite.id), card, false, 36)
+			line("WASD move · E interact · Shift dodge (30 stamina) · Q special (20 stamina) · J journal",13,MUTED)
 			button("Wake by the fire",func(): director.welcomed = true; close(); game._auto_save(); announce("HEARTH HALL","Find Moss beside the fire · Approach and press E"))
 		"board":
 			line("Moss's expedition board",32)
 			line("“Bring back what you can. Leave enough strength for the road home.”",17,MUTED)
 			if not active.is_empty() and not active.claimed:
 				line(director.objective_text(),22,GOLD)
-				line("Your contract cargo is secured. You can finish the journey, explore for more, or return early and keep your ordinary loot.")
-				button("Deliver the supplies · Claim reward",director.claim,null,not active.ready or not director.home())
+				line("Your objective is complete. Return to Moss for your reward, or keep exploring." if active.ready else "Your expedition is underway. Follow the trail objective, then return to Moss for your reward.")
+				button("Report to Moss · Claim reward",director.claim,null,not active.ready or not director.home())
 				button("End this expedition early",func(): open("abandon"),null,not director.home())
 			else:
 				var cards := HBoxContainer.new()
@@ -179,11 +195,35 @@ func open(page: String = "board") -> void:
 					line(def.tag,12,GOLD,card)
 					line(def.name,21,PALE,card)
 					var desc := line(def.description,15,MUTED,card)
-					desc.custom_minimum_size.y = 130
+					desc.custom_minimum_size.y = 80
 					line("%d scrap  ·  %d XP"%[def.scrap,def.xp],14,GOLD,card)
 					button("Take contract",director.begin.bind(i,-1),card,not director.home())
+			button("Boss hunts · Defend the den",func(): open("hunts"))
 			button("Prepare · Den upgrades",func(): open("upgrades"))
 			button("Back to the fire",close)
+		"hunts":
+			var hunts = game.rpg.boss_hunts
+			var quest: Dictionary = hunts.current()
+			line("Moss's boss hunts",30,GOLD)
+			line("Nine hunts defend the den. Then the Cinder Orchard offers one final, brutal bonus challenge.",16,MUTED)
+			line("%d / %d hunts rewarded" % [hunts.completed_count(),hunts.quests().size()],16,GOLD)
+			if not quest.is_empty():
+				if quest.get("bonus",false):
+					line("FINAL BONUS · EXTREME DANGER",16,GOLD)
+				line(str(quest.name),24)
+				line(str(quest.description),17)
+				line(str(quest.destination),16,GOLD)
+				line("%d scrap · %d XP" % [quest.reward_scrap,quest.reward_xp],16)
+				if not hunts.accepted:
+					button("Accept final bonus quest" if quest.get("bonus",false) else "Accept boss hunt",hunts.accept,null,not director.home())
+				elif hunts.is_complete(quest):
+					button("Report to Moss · Claim hunt reward",hunts.claim,null,not director.home())
+				else:
+					line("Hunt underway · " + str(quest.hint),16,MUTED)
+			else:
+				line("Every boss has fallen. The tribe will tell your story.",22)
+			button("Expedition board",func(): open("board"))
+			button("Return to the trail",close)
 		"abandon":
 			line("Live to walk another trail.",30)
 			line("Ending early keeps your XP, gathered items, and ordinary loot. Unclaimed contract cargo and its reward are forfeited. Moss will offer a fresh expedition.")
@@ -217,20 +257,26 @@ func open(page: String = "board") -> void:
 			for def in Data.UPGRADES:
 				var rank := int(director.upgrades[def.id])
 				var cap := 2 if def.id=="pouch" else 3
-				var cost := 28+rank*18
+				var cost := Data.upgrade_cost(rank)
 				line(def.description,15,MUTED)
 				button("%s   ·   %d/%d   ·   %s"%[def.name,rank,cap,"Complete" if rank>=cap else "%d scrap"%cost],director.buy.bind(def.id),null,rank>=cap or game.scrap<cost or not director.home())
 			button("Expedition board",func(): open("board"))
 			button("Back to the den",close)
 		_:
 			line("Your field journal",32)
-			line(director.objective_text(),21,GOLD)
-			line("OUTBOUND  ·  Hearth Hall → eastern tunnels → Daylight Grotto → Thornwood Hollow → eastern trail → Thornwood Expanse",16)
-			line("HOMEBOUND  ·  Follow the gold compass. Once the objective is complete, Moss's hidden trail at the western forest sign takes you home. Or walk back through the caves.",16,MUTED)
-			if not active.is_empty():
+			line(director.hud_objective_text(),21,GOLD)
+			line(game.rpg.boss_hunts.objective(),16,GOLD)
+			button("Boss hunt journal",func(): open("hunts"))
+			if game.rpg.boss_hunts.accepted:
+				line(str(game.rpg.boss_hunts.current().hint),15,MUTED)
+			else:
+				line("OUTBOUND  ·  Hearth Hall → eastern tunnels → Daylight Grotto → Thornwood Hollow → eastern trail → Thornwood Expanse",16)
+				line("HOMEBOUND  ·  Follow the gold compass. Once the objective is complete, Moss's hidden trail at the western forest sign takes you home. Or walk back through the caves.",16,MUTED)
+			if not active.is_empty() and not active.get("claimed",false) and not game.rpg.boss_hunts.accepted:
+				line("Trail danger %d / 6 · Rises with completed expeditions and boss hunts." % (int(active.get("threat",0))+1),14,GOLD)
 				line("Optional: gather bloodmoss, investigate the sheltered camp, or cross the river for the guarded Watcher's cache. No countdown. Your expedition ends when you choose.",16)
 				line("Seed %d  ·  %s  ·  Expedition %d  ·  %s"%[active.seed,active.weather,active.serial,Data.weather_profile(str(active.weather)).blurb],13,MUTED)
-			line("Fight with Space / click, aim with the mouse. Q uses your class special, Shift dodges, F drinks a potion. Press E near a defeated enemy to inspect its loot.",15)
+			line("Fight with Space / click, aim with the mouse. Shift dodges (30 stamina), Q uses your class special (20). Stamina recovers after a short pause; basic attacks are free. F drinks a potion. E inspects loot.",15)
 			line("Mist: stand still to vanish. Rain: arrows hang in the wet. Clear: watchers see farther. Streaks raise your damage until you are hit.",14,GOLD)
 			if director.home():
 				button("Speak with Moss",func(): open("board"))
@@ -261,14 +307,17 @@ func _input(event: InputEvent) -> void:
 		elif not get_tree().paused and not director.game.rpg.input_blocked() and event.physical_keycode==KEY_J:
 			open("journal")
 			get_viewport().set_input_as_handled()
+		elif not get_tree().paused and not director.game.rpg.input_blocked() and event.physical_keycode==KEY_H:
+			toggle_journal_shortcut()
+			get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
 	if not get_tree().paused:
 		banner_time = maxf(0,banner_time-delta)
-	banner.visible = banner_time>0 and not overlay.visible
+	banner.visible = false
 	banner.modulate.a = minf(1,banner_time)*minf(1,(5-banner_time)*2)
-	journal_button.visible = not get_tree().paused
-	var letter := 70.0 if banner.visible else 0.0
+	refresh_hud()
+	var letter := 0.0
 	letter_top.position.y = lerpf(letter_top.position.y, -80.0+letter, minf(1.0,delta*8.0))
 	letter_bot.position.y = lerpf(letter_bot.position.y, 720.0-letter, minf(1.0,delta*8.0))
 

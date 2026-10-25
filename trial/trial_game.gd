@@ -1,11 +1,43 @@
 extends "res://scripts/main.gd"
 ## The original scene and systems are inherited, with bounded trial encounters.
 var expedition = preload("res://trial/expedition.gd").new()
+var restart_pending := false
+
+func _auto_save() -> void:
+	if not restart_pending:
+		super._auto_save()
+
+func start_over() -> void:
+	if restart_pending:
+		return
+	if not SaveData.save(self):
+		return
+	var backup_error := DirAccess.copy_absolute(SaveData.SAVE_PATH, SaveData.SAVE_PATH + ".before-restart")
+	if backup_error != OK:
+		show_notice("Could not back up the current journey. Start over cancelled.")
+		return
+	var error := DirAccess.remove_absolute(SaveData.SAVE_PATH)
+	if error != OK:
+		show_notice("Could not clear the current journey. Start over cancelled.")
+		return
+	# Block old-scene autosaves until the fresh scene takes over.
+	restart_pending = true
+	get_tree().paused = true
+	call_deferred("_reload_new_journey")
+
+func _reload_new_journey() -> void:
+	var error := get_tree().reload_current_scene()
+	if error != OK:
+		DirAccess.copy_absolute(SaveData.SAVE_PATH + ".before-restart", SaveData.SAVE_PATH)
+		restart_pending = false
+		get_tree().paused = false
+		show_notice("Could not restart. Your previous journey has been restored.")
 
 func _ready() -> void:
 	super._ready()
 	expedition.game = self
 	add_child(expedition)
+	rpg.boss_hunts.ensure_encounter()
 	if has_meta("trial_resume"):
 		var resume: Dictionary = get_meta("trial_resume")
 		enter_room(int(resume.room),resume.position,true)
@@ -26,6 +58,7 @@ func on_enemy_defeated(enemy: Node2D, room_index: int) -> void:
 		return
 	enemy.set_meta("reward_recorded",true)
 	# Record defeat before any XP-triggered autosave.
+	rpg.boss_hunts.record_defeat(enemy)
 	expedition.record_defeat(enemy)
 	audio_system.play_sfx("death")
 	rpg.enemy_reward(enemy,room_index)
@@ -51,11 +84,21 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("restart"):
-		show_notice("Your expedition is persistent. Speak to Moss to return early or choose another contract.")
+		if not rpg.input_blocked():
+			game_menu.open()
+			game_menu.restart_visible = true
+			game_menu._rebuild()
+		get_viewport().set_input_as_handled()
 		return
 	super._unhandled_input(event)
 
 func enter_room(index: int, spawn_point: Vector2, world_spawn: bool = false) -> void:
+	if current_room == 16 and index != 16 and rpg != null:
+		rpg.orchard.reset_boss_on_exit()
+	if index == 16 and rpg != null and not rpg.orchard.accessible():
+		index = 5
+		spawn_point = preload("res://scripts/cinder_orchard_layout.gd").HOLLOW_RETURN
+		world_spawn = true
 	super.enter_room(index,spawn_point,world_spawn)
 	if expedition.is_inside_tree():
 		expedition.on_room_entered()

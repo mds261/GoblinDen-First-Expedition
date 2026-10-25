@@ -1,17 +1,17 @@
 extends RefCounted
 ## Authored destinations, randomized situations; never randomized world geometry.
 const CONTRACTS := [
-	{"id":"supplies", "name":"Lost Supplies", "tag":"EXPLORATION", "description":"Follow the torn banners. Recover three supply bundles from the Thornwood trails.", "scrap":32, "xp":85},
+	{"id":"supplies", "name":"Lost Supplies", "tag":"GUARDED RECOVERY", "description":"Break the guards holding three supply bundles, then bring the supplies home.", "scrap":32, "xp":85},
 	{"id":"hunt", "name":"Hunter's Tracks", "tag":"COMBAT", "description":"Three human outriders are marking our trails. Break their patrol before it finds the den.", "scrap":38, "xp":100},
-	{"id":"raid", "name":"Silent Raid", "tag":"RISK & REWARD", "description":"Recover the scouting ledger. Circle the watch or fight through it; the choice is yours.", "scrap":36, "xp":90}
+	{"id":"raid", "name":"Break the Watch", "tag":"CAMP ASSAULT", "description":"Defeat the two-guard camp and recover its scouting ledger before returning to Moss.", "scrap":36, "xp":90}
 ]
 const SITES := [Vector2(500,760), Vector2(1100,1000), Vector2(1400,550)]
 const BONUS := Vector2(1810,790)
 const EVENTS := ["A goblin in the rain", "The last campfire", "Glowleaf sanctuary"]
 const UPGRADES := [
-	{"id":"edge", "name":"Forge · Tempered edge", "description":"+3 damage with every class. Three ranks.", "cost":28},
-	{"id":"ward", "name":"Training · Hardy constitution", "description":"+10 maximum health. Three ranks.", "cost":28},
-	{"id":"pouch", "name":"Shaman · Deep medicine pouch", "description":"Carry one more healing potion. Two ranks.", "cost":28}
+	{"id":"edge", "name":"Forge · Tempered edge", "description":"+3 damage with every class. Three ranks.", "cost":40},
+	{"id":"ward", "name":"Training · Hardy constitution", "description":"+10 maximum health. Three ranks.", "cost":40},
+	{"id":"pouch", "name":"Shaman · Deep medicine pouch", "description":"Carry one more healing potion. Two ranks.", "cost":40}
 ]
 const WEATHER := {
 	"Clear": {"notice":1.08, "move":1.0, "arrow":1.0, "conceal":false, "blurb":"Open sky. Watchers see farther."},
@@ -26,6 +26,12 @@ const RITES := [
 ]
 static func weather_profile(name: String) -> Dictionary:
 	return WEATHER.get(name, WEATHER.Clear)
+static func upgrade_cost(rank: int) -> int:
+	return 40 + rank * 24
+
+static func encounter_stats(threat: int, elite: bool) -> Dictionary:
+	var rank := clampi(threat,0,5)
+	return {"hp":160 + rank * 22 if elite else 85 + rank * 14, "damage":18 + rank * 2 if elite else 12 + rank * 2, "speed":94 + rank * 2 if elite else 100 + rank * 3}
 static func generate(kind: int, seed_value: int, serial: int) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value

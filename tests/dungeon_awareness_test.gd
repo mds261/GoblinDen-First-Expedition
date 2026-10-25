@@ -9,6 +9,13 @@ func check(ok: bool, message: String) -> void:
 		failures += 1
 		push_error(message)
 func run() -> void:
+	var save = load("res://scripts/save_data.gd")
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--test-save=") and arg.contains("work"):
+			save.SAVE_PATH = arg.trim_prefix("--test-save=")
+	if not save.SAVE_PATH.contains("work"):
+		quit(2)
+		return
 	load("res://scripts/save_data.gd").delete_save()
 	var game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
@@ -38,10 +45,19 @@ func run() -> void:
 	game.player.position = home-Vector2(330,0)
 	await physics_frame
 	guards[0]._physics_process(0.016)
-	check(guards[0].dungeon_awareness.state=="engaged","Guard detects the player beyond the previous 280-pixel radius")
+	check(guards[0].dungeon_awareness.state=="idle","Guard stays idle at the old distant detection range")
+	guards[0].dungeon_awareness.notice_scale = 1.08
+	game.player.position = home-Vector2(200,0)
+	await physics_frame
+	guards[0]._physics_process(0.016)
+	check(guards[0].dungeon_awareness.state=="idle","Clear-weather guard stays idle at 200 pixels")
+	game.player.position = home-Vector2(125,0)
+	await physics_frame
+	guards[0]._physics_process(0.016)
+	check(guards[0].dungeon_awareness.state=="engaged","Guard detects a nearby player inside the shorter radius")
 	guards[0].position = home
 	guards[0].dungeon_awareness.configure(guards[0])
-	game.player.position = Vector2(950,320)
+	game.player.position = Vector2(1000,320)
 	var ally = load("res://scripts/goblin_ally.gd").new()
 	game.add_child(ally)
 	ally.set_physics_process(false)
@@ -71,7 +87,7 @@ func run() -> void:
 	check(guard.dungeon_awareness.state!="engaged" and guard.windup==0,"Losing sight disengages and cancels pending attacks")
 	guard.position = Vector2(1130,320)
 	guard.dungeon_awareness.configure(guard)
-	game.player.position = Vector2(950,320)
+	game.player.position = Vector2(1000,320)
 	guard._physics_process(0.016)
 	guard.position = guard.dungeon_awareness.home+Vector2(220,0)
 	guard.windup = 0.8

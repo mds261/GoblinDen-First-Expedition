@@ -27,7 +27,7 @@
     },
     {
       "damage": 25,
-      "hp": 180,
+      "hp": 300,
       "loot": "captain_sword",
       "name": "IRON CAPTAIN",
       "role": "boss",
@@ -74,8 +74,8 @@
       "id": "campaign_1_1_2_novice_priest"
     },
     {
-      "damage": 24,
-      "hp": 155,
+      "damage": 28,
+      "hp": 580,
       "loot": "",
       "name": "SHIELD VANGUARD",
       "role": "knight",
@@ -159,7 +159,7 @@
     },
     {
       "damage": 34,
-      "hp": 290,
+      "hp": 680,
       "loot": "rogue_stiletto",
       "name": "HUNTMASTER VANE",
       "role": "boss",
@@ -243,7 +243,7 @@
     },
     {
       "damage": 42,
-      "hp": 400,
+      "hp": 1050,
       "loot": "paladin_greatsword",
       "name": "GRAND PALADIN AURELIUS",
       "role": "boss",
@@ -327,7 +327,7 @@
     },
     {
       "damage": 48,
-      "hp": 540,
+      "hp": 1400,
       "loot": "hero_dawnbreaker",
       "name": "THE DAWN HERO",
       "role": "boss",
@@ -393,7 +393,7 @@
       "max_windup": 1.12,
       "speed": 82.0,
       "name": "CAVE-MOUTH OGRE",
-      "hp": 480,
+      "hp": 820,
       "scrap": 14,
       "xp": 210,
       "kind": "large",
@@ -408,7 +408,7 @@
       "max_windup": 0.48,
       "speed": 148.0,
       "name": "ROOTVEIN GIANT SPIDER",
-      "hp": 320,
+      "hp": 380,
       "scrap": 10,
       "xp": 150,
       "kind": "large",
@@ -423,7 +423,7 @@
       "max_windup": 0.58,
       "speed": 182.0,
       "name": "THORNWOOD WOLF RIDER",
-      "hp": 370,
+      "hp": 460,
       "scrap": 12,
       "xp": 180,
       "kind": "large",
@@ -454,9 +454,9 @@
     },
     {
       "name": "THE GILDED HUNGER",
-      "hp": 900,
+      "hp": 1100,
       "speed": 100.0,
-      "damage": 22,
+      "damage": 28,
       "scrap": 40,
       "xp": 360,
       "loot": "",
@@ -609,6 +609,42 @@
       "loot": "",
       "kind": "human",
       "id": "dungeon_guard_3"
+    },
+    {
+      "name": "CINDER MITE",
+      "hp": 180,
+      "speed": 70.0,
+      "damage": 24,
+      "scrap": 2,
+      "xp": 14,
+      "loot": "",
+      "kind": "cinder",
+      "role": "mite",
+      "id": "cinder_mite"
+    },
+    {
+      "name": "ASH WISP",
+      "hp": 240,
+      "speed": 78.0,
+      "damage": 22,
+      "scrap": 3,
+      "xp": 18,
+      "loot": "",
+      "kind": "cinder",
+      "role": "wisp",
+      "id": "ash_wisp"
+    },
+    {
+      "name": "KILNHEART",
+      "hp": 3000,
+      "speed": 90,
+      "damage": 52,
+      "scrap": 22,
+      "xp": 110,
+      "loot": "",
+      "kind": "boss",
+      "role": "kilnheart",
+      "id": "kilnheart"
     }
   ]
 }

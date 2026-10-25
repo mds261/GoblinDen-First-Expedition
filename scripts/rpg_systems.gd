@@ -21,6 +21,8 @@ const SWAMP := 11
 const DEEP_CAVE := 12
 var exploration_map: Node2D
 var dungeon: Node2D
+var orchard: Node2D
+var boss_hunts = preload("res://scripts/boss_hunts.gd").new()
 var game: Node2D
 var items: Dictionary = {}
 var backpack: RefCounted
@@ -40,6 +42,9 @@ var quest_claimed := false
 var kills := 0
 var mana := 60.0
 var stamina := 100.0
+var stamina_recovery_delay := 0.0
+var stamina_feedback_delay := 0.0
+
 var world_hour := 8.0
 var weather := "Clear"
 var weather_timer := 0.0
@@ -77,6 +82,26 @@ var loot_serial := 0
 var recovery_visuals: Array[Node2D] = []
 var loot_window: CanvasLayer
 
+func spend_stamina(amount: float) -> bool:
+	if stamina < amount:
+		if stamina_feedback_delay <= 0.0:
+			preload("res://scripts/floating_text.gd").spawn_status(game, game.player.global_position + Vector2(0,-50), "LOW STAMINA", Color("e4b16b"))
+			stamina_feedback_delay = 0.8
+		return false
+	stamina = maxf(0, stamina - amount)
+	stamina_recovery_delay = 0.9
+	return true
+
+func recover_stamina(delta: float) -> void:
+	var recovery_time := maxf(0, delta - stamina_recovery_delay)
+	stamina_recovery_delay = maxf(0, stamina_recovery_delay - delta)
+	stamina_feedback_delay = maxf(0, stamina_feedback_delay - delta)
+	stamina = minf(100, stamina + recovery_time * 20.0)
+
+func refill_stamina() -> void:
+	stamina = 100.0
+	stamina_recovery_delay = 0.0
+
 func _ready() -> void:
 	game = get_parent()
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -110,6 +135,11 @@ func _ready() -> void:
 	exploration_map.game = game
 	exploration_map.rpg = self
 	add_child(exploration_map)
+	orchard = preload("res://scripts/cinder_orchard.gd").new()
+	orchard.game = game
+	add_child(orchard)
+	boss_hunts.game = game
+	add_child(boss_hunts)
 	log_event("System", "The den is quiet. Your journey begins.")
 
 func _define_items() -> void:
@@ -190,7 +220,7 @@ func _process(delta: float) -> void:
 	for action in cooldowns.keys():
 		cooldowns[action] = maxf(0.0, float(cooldowns[action]) - delta)
 	mana = minf(max_mana(), mana + delta * (1.5 + float(attributes.Willpower) * 0.1))
-	stamina = minf(100.0, stamina + delta * 18.0)
+	recover_stamina(delta)
 	weather_timer -= delta
 	if weather_timer <= 0:
 		weather_timer = 90.0
@@ -414,6 +444,7 @@ func npc_position(definition: Dictionary) -> Vector2:
 	return definition.get("point",Vector2.ZERO)
 
 func die() -> void:
+	refill_stamina()
 	var dropped: Array = backpack.slots.duplicate(true)
 	for id in equipped.values():
 		dropped.append({"id": id, "count": 1})
@@ -467,6 +498,8 @@ func interaction_candidates() -> Array:
 		var remaining := float(cooldowns.get("fishing", 0.0))
 		options.append({"point": Vector2(1000, 450), "radius": 80.0, "label": preload("res://scripts/design_catalog.gd").display("labels", "fish_at_riverbank") if remaining <= 0.0 else "Fish returning — %ds" % ceili(remaining), "action": _fish, "ready": remaining <= 0.0})
 	options.append_array(dungeon.interaction_candidates())
+	if orchard != null:
+		options.append_array(orchard.interaction_candidates())
 	return options
 
 func try_interact() -> bool:
@@ -621,6 +654,9 @@ func _build_ui() -> void:
 	for i in range(12):
 		var button := Button.new()
 		button.custom_minimum_size = Vector2(50, 43)
+		var initial_title := Catalog.display("spells", str(bindings[i]), str(bindings[i]).replace("_", " "))
+		button.text = "%s\n%s" % [OS.get_keycode_string(int(keycodes[i])), initial_title.left(6)]
+		button.tooltip_text = initial_title
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		if bindings[i] == "potion":
 			_item_button(button, "potion", 28)
@@ -633,19 +669,26 @@ func _build_ui() -> void:
 		button.add_theme_stylebox_override("normal",action_style)
 		button.pressed.connect(func(): cast(str(bindings[i])))
 		hotbar.add_child(button)
+		button.visible = str(bindings[i]) not in ["", "potion"]
+	var assigned_count := 0
+	for action_button in hotbar.get_children():
+		if action_button.visible:
+			assigned_count += 1
+	hotbar.position.x = (1152.0 - float(assigned_count * 56 - 6)) * 0.5
 	var menu := Button.new()
-	menu.text = "Pack"
+	menu.name = "PackShortcut"
+	menu.text = "Pack [I]"
 	menu.tooltip_text = "Backpack & equipment [I]"
-	menu.position = Vector2(1002, 18)
-	menu.add_theme_font_size_override("font_size", 12)
-	menu.custom_minimum_size = Vector2(58, 28)
+	menu.position = Vector2(954, 18)
+	preload("res://trial/look.gd").toolbar(menu,80)
 	menu.pressed.connect(func(): panel.visible = not panel.visible; _refresh_panel())
 	layer.add_child(menu)
 	var pause_button := Button.new()
-	pause_button.text = "Menu"
+	pause_button.name = "MenuShortcut"
+	pause_button.text = "Menu [Esc]"
 	pause_button.tooltip_text = "Pause, controls & training [Esc]"
-	pause_button.position = Vector2(1066,18)
-	pause_button.custom_minimum_size = Vector2(66,28)
+	pause_button.position = Vector2(1042,18)
+	preload("res://trial/look.gd").toolbar(pause_button,90)
 	pause_button.pressed.connect(func(): game.game_menu.open())
 	layer.add_child(pause_button)
 	loot_feedback = VBoxContainer.new()
@@ -743,6 +786,7 @@ func _refresh_panel() -> void:
 			_render_character_tab()
 			return
 		"Journal":
+			_label(body,boss_hunts.objective())
 			_label(body,dungeon.journal())
 			return
 		"Crafting":
@@ -1069,7 +1113,7 @@ func _chat_submit(text: String) -> void:
 		log_event("General", "You: " + text)
 
 func snapshot() -> Dictionary:
-	return {"opening_layout":2,"opening_cleared":game.opening_cleared,"monster_corpses":monster_corpses,"loot_serial":loot_serial,"pack": backpack.slots, "capacity": backpack.capacity, "chest": chest.slots, "chest_capacity": chest.capacity, "depot": depot.slots, "equipped": equipped, "proficiencies": proficiencies, "attributes": attributes, "points": points, "learned": learned, "bindings": bindings, "keycodes": keycodes, "corpses": corpses, "discovered": discovered, "quest": quest_claimed, "kills": kills, "mana": mana, "world_hour": world_hour, "cooldowns": cooldowns, "weather": weather, "travelers": travelers, "talked_npcs": talked_npcs, "wanderer_counter": wanderer_counter, "dungeon": dungeon.snapshot(), "exploration_map": exploration_map.snapshot()}
+	return {"opening_layout":2,"opening_cleared":game.opening_cleared,"monster_corpses":monster_corpses,"loot_serial":loot_serial,"pack": backpack.slots, "capacity": backpack.capacity, "chest": chest.slots, "chest_capacity": chest.capacity, "depot": depot.slots, "equipped": equipped, "proficiencies": proficiencies, "attributes": attributes, "points": points, "learned": learned, "bindings": bindings, "keycodes": keycodes, "corpses": corpses, "discovered": discovered, "quest": quest_claimed, "kills": kills, "mana": mana, "stamina": stamina, "stamina_recovery_delay": stamina_recovery_delay, "world_hour": world_hour, "cooldowns": cooldowns, "weather": weather, "travelers": travelers, "talked_npcs": talked_npcs, "wanderer_counter": wanderer_counter, "dungeon": dungeon.snapshot(), "exploration_map": exploration_map.snapshot(), "orchard": orchard.snapshot(), "boss_hunts": boss_hunts.snapshot()}
 
 func restore(state: Dictionary) -> void:
 	if state.is_empty():
@@ -1102,6 +1146,8 @@ func restore(state: Dictionary) -> void:
 	quest_claimed = bool(state.get("quest", false))
 	kills = int(state.get("kills", 0))
 	mana = float(state.get("mana", 60.0))
+	stamina = clampf(float(state.get("stamina", 100.0)), 0, 100)
+	stamina_recovery_delay = clampf(float(state.get("stamina_recovery_delay", 0)), 0, 0.9)
 	world_hour = float(state.get("world_hour", 8.0))
 	cooldowns = state.get("cooldowns", {}).duplicate(true)
 	weather = str(state.get("weather", "Clear"))
@@ -1114,6 +1160,9 @@ func restore(state: Dictionary) -> void:
 	talked_npcs = state.get("talked_npcs", []).duplicate()
 	wanderer_counter = int(state.get("wanderer_counter", 0))
 	dungeon.restore(state.get("dungeon", {}))
+	if orchard != null:
+		orchard.restore(state.get("orchard", {}))
+	boss_hunts.restore(state.get("boss_hunts", {}))
 	exploration_map.restore(state.get("exploration_map", {}))
 	if int(state.get("opening_layout",0))<2:
 		for old_room in Starting.IDS:
@@ -1227,6 +1276,7 @@ func _npc_service(npc: Dictionary) -> void:
 					ally.revive_and_heal()
 			game.potions = game.max_potions
 			mana = max_mana()
+			refill_stamina()
 			world_hour = fmod(world_hour + 8, 24)
 			log_event("General", str(npc.name) + ": Catch your breath. The road can wait.")
 		"supplies":

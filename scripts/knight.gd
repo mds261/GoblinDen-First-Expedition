@@ -270,12 +270,14 @@ func apply_status(add_bleed: int, add_poison: int, add_slow: float) -> void:
 		poison_dps = maxi(poison_dps, add_poison)
 		dot_timer = maxf(dot_timer, 3.0)
 	if add_slow > 0.0:
-		slow_timer = maxf(slow_timer, add_slow)
+		var resistance := 0.55 if role == "boss" or has_meta("boss_hunt_id") else 1.0
+		slow_timer = maxf(slow_timer, add_slow * resistance)
 
 func apply_stun(duration: float) -> void:
 	if hp <= 0:
 		return
-	stun_timer = maxf(stun_timer, duration)
+	var resistance := 0.45 if role == "boss" or has_meta("boss_hunt_id") else 1.0
+	stun_timer = maxf(stun_timer, duration * resistance)
 	windup = 0.0
 	show_floating_text("STUNNED!")
 
@@ -297,7 +299,7 @@ func take_damage(amount: int, direction: Vector2 = Vector2.ZERO) -> void:
 		get_tree().call_group("combat_feedback", "impact", false)
 	flash = 0.13
 	if direction != Vector2.ZERO:
-		knockback = direction * 240.0
+		knockback = direction * (72.0 if role == "boss" or has_meta("boss_hunt_id") else 240.0)
 	# Polish: floating damage number on enemies
 	var parent_node := get_parent()
 	if is_instance_valid(parent_node):

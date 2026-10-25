@@ -1,0 +1,37 @@
+extends SceneTree
+func _initialize() -> void:
+	call_deferred("run")
+func run() -> void:
+	var output := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--output="):
+			output = arg.trim_prefix("--output=")
+	if output.is_empty():
+		quit(2)
+		return
+	var save = load("res://scripts/save_data.gd")
+	save.SAVE_PATH = output.path_join("bonus-preview-work.cfg")
+	save.delete_save()
+	var game = load("res://scenes/main.tscn").instantiate()
+	root.add_child(game)
+	current_scene = game
+	game.expedition.ui.close()
+	game.player.set_physics_process(false)
+	game.player.invulnerability = 999999
+	game.enter_room(5,preload("res://scripts/cinder_orchard_layout.gd").HOLLOW_ENTRANCE,true)
+	await create_timer(0.2).timeout
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png(output.path_join("cinder-bonus-sealed.png"))
+	var hunts = game.rpg.boss_hunts
+	hunts.claimed = hunts.quests().filter(func(q): return not q.get("bonus",false)).map(func(q): return str(q.id))
+	game.enter_room(0,game.expedition.moss_position(),true)
+	game.expedition.ui.open("hunts")
+	await create_timer(0.2).timeout
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png(output.path_join("cinder-bonus-quest.png"))
+	game.expedition.ui.close()
+	game.queue_free()
+	await process_frame
+	save.delete_save()
+	print("Cinder bonus gate and quest screens rendered")
+	quit()

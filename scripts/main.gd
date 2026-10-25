@@ -16,6 +16,7 @@ const LargeEnemy = preload("res://scripts/large_enemy.gd")
 
 const Starting = preload("res://scripts/starting_caves.gd")
 const DenLayout = preload("res://scripts/den_layout.gd")
+const Cinder = preload("res://scripts/cinder_orchard_layout.gd")
 
 static var ROOM_NAMES: Array = Catalog.room_names()
 
@@ -114,6 +115,7 @@ func _ready() -> void:
 	if SaveData.has_save():
 		restored_save = SaveData.load_data(self)
 	rpg.dungeon.populate()
+	rpg.orchard.populate()
 	if restored_save:
 		_spawn_large_enemies()
 		_populate_campaign_enemies(campaign_index)
@@ -346,7 +348,8 @@ func enter_room(index: int, spawn_point: Vector2, world_spawn: bool = false) -> 
 	var camp_tag := "  •  TIER %d" % (campaign_index + 1) if index > 0 and index <= 2 else ""
 	room_label.text = Starting.NAMES.get(Starting.zone(player.position),"DEN TUNNELS") if index==0 else ROOM_NAMES[index]+camp_tag
 	opening_zone = Starting.zone(player.position) if index==0 else -99
-	if audio_system != null and index != previous_room and (index>=13 or previous_room>=13):
+	var dungeon_step := (index >= 13 and index <= 15) or (previous_room >= 13 and previous_room <= 15)
+	if audio_system != null and index != previous_room and dungeon_step:
 		audio_system.play_sfx("stairs")
 	if rpg != null:
 		rpg.dungeon.on_enter(index)
@@ -364,6 +367,11 @@ func _configure_camera_for_room(index: int) -> void:
 		camera.limit_top = 0
 		camera.limit_right = int(Starting.SIZE.x)
 		camera.limit_bottom = int(Starting.SIZE.y)
+	elif index == Cinder.ROOM:
+		camera.limit_left = 0
+		camera.limit_top = 0
+		camera.limit_right = int(Cinder.SIZE.x)
+		camera.limit_bottom = int(Cinder.SIZE.y)
 	elif index >= 13:
 		camera.limit_left = 0
 		camera.limit_top = 0
@@ -485,7 +493,7 @@ func gain_xp(amount: int) -> void:
 	if leveled:
 		audio_system.play_sfx("level_up")
 		player.apply_class_and_gear(player.class_id, player.evolution_id, true)
-		player.heal(25)
+		player.heal(10)
 		show_notice("LEVEL UP! Now Lv %d %s — Press [C] or visit Training Pit to evolve!" % [player.level, player.get_class_title()])
 		# Polish: level-up juice + tutorial + autosave
 		_shake_camera(7.0, 0.28)
@@ -747,10 +755,14 @@ func advance_war_room_campaign() -> void:
 func use_potion() -> void:
 	if player.hp <= 0:
 		return
+	if rpg != null and float(rpg.cooldowns.get("potion_use",0)) > 0:
+		return
 	if potions <= 0:
 		show_notice("Out of Bloodmoss Potions! Rest at the fire or visit the Shaman Hut.")
 		return
 	potions -= 1
+	if rpg != null:
+		rpg.cooldowns["potion_use"] = 1.5
 	audio_system.play_sfx("potion")
 	player.heal(35)
 	player.venom_coating_timer = 8.0
@@ -785,6 +797,7 @@ func _interact_legacy() -> void:
 			update_health(player.hp, player.max_hp)
 			rpg.world_hour = fmod(rpg.world_hour + 8.0, 24.0)
 			rpg.mana = rpg.max_mana()
+			rpg.refill_stamina()
 			show_notice("Rested by the den fire. HP, party, and potions restored.")
 			_auto_save()
 			return
@@ -1032,6 +1045,9 @@ func refresh_objective() -> void:
 			objective.text = "Explore your den · Eastern tunnels lead to daylight"
 		else:
 			objective.text = "Rootvein nest · Optional hunt" if Starting.zone(player.position)==3 else "Follow the eastern tunnels toward daylight"
+		return
+	if current_room == Cinder.ROOM:
+		objective.text = "Cinder Orchard · Optional heat under the hollow"
 		return
 	if current_room >= 13:
 		objective.text = rpg.dungeon.objective(current_room)

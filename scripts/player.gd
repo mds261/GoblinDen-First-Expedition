@@ -27,6 +27,8 @@ signal health_changed(current: int, maximum: int)
 signal died
 signal special_used(skill_name: String)
 signal camera_shake_requested(intensity: float, duration: float)
+const DODGE_STAMINA_COST := 30.0
+const SPECIAL_STAMINA_COST := 20.0
 
 @export var speed: float = 220.0
 @export var acceleration: float = 2400.0
@@ -93,7 +95,7 @@ func apply_class_and_gear(new_class_id: String, new_evo_id: String = "", keep_hp
 	var cdata: Dictionary = GoblinData.CLASSES[class_id]
 	var edata: Dictionary = GoblinData.EVOLUTIONS.get(evolution_id, {})
 	var ldata: Dictionary = GoblinData.LOOT_ITEMS.get(equipped_loot_id, {})
-	var base_max_hp: int = int(cdata["max_hp"]) + int(edata.get("hp_bonus", 0)) + int(ldata.get("max_hp", 0)) + (level - 1) * 10
+	var base_max_hp: int = int(cdata["max_hp"]) + int(edata.get("hp_bonus", 0)) + int(ldata.get("max_hp", 0)) + (level - 1) * 6
 	var rpg = get_parent().get("rpg")
 	if rpg != null:
 		base_max_hp += int(rpg.gear_stat("health")) + int(rpg.attributes.Vitality) * 5
@@ -110,7 +112,7 @@ func apply_class_and_gear(new_class_id: String, new_evo_id: String = "", keep_hp
 	attack_range = float(cdata["attack_range"])
 	armor_rating = clampf(float(cdata["armor"]) + float(edata.get("armor_bonus", 0.0)) + float(ldata.get("armor_bonus", 0.0)), 0.0, 0.70)
 	crit_chance = clampf(float(cdata["crit_chance"]) + float(edata.get("crit_bonus", 0.0)) + float(ldata.get("crit_bonus", 0.0)), 0.0, 0.85)
-	bonus_damage = int(edata.get("damage_bonus", 0)) + int(ldata.get("damage", 0)) + (level - 1) * 4
+	bonus_damage = int(edata.get("damage_bonus", 0)) + int(ldata.get("damage", 0)) + (level - 1) * 2
 	health_changed.emit(hp, max_hp)
 	queue_redraw()
 
@@ -222,7 +224,7 @@ func _physics_process(delta: float) -> void:
 	dodge_buffer = maxf(0.0, dodge_buffer - delta)
 	if Input.is_action_just_pressed("dodge"):
 		dodge_buffer = 0.14
-	if dodge_buffer > 0.0 and dodge_cooldown <= 0.0 and (rpg == null or rpg.stamina >= 25.0):
+	if dodge_buffer > 0.0 and dodge_cooldown <= 0.0:
 		start_dodge()
 		dodge_buffer = 0.0
 	var target_velocity := direction * speed * _trial_move_scale()
@@ -278,12 +280,10 @@ func reset_motion() -> void:
 		controller.walk_time = 0.0
 
 func start_dodge() -> void:
+	if hp <= 0 or dodge_cooldown > 0.0 or dodge_time > 0.0:
+		return
 	var rpg = get_parent().get("rpg")
-	if rpg != null:
-		if rpg.stamina < 25.0 or dodge_cooldown > 0.0:
-			return
-		rpg.stamina -= 25.0
-	if hp <= 0 or dodge_cooldown > 0.0:
+	if rpg != null and not rpg.spend_stamina(DODGE_STAMINA_COST):
 		return
 	var movement := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	dodge_direction = movement if movement != Vector2.ZERO else facing
@@ -321,19 +321,20 @@ func attack() -> void:
 		stealth_timer = 0.0
 	var bleed_val: int = int(cdata["bleed_dps"]) + (6 if evolution_id in ["assassin", "berserker"] else 0)
 	var poison_val: int = int(cdata["poison_dps"]) + (8 if venom_coating_timer > 0.0 or evolution_id in ["assassin", "shaman", "hunter"] else 0)
-	# Close-range melee check works for all classes (and is primary for Blade & Knight Goblin)
-	var melee_reach := attack_range if not bool(cdata["ranged"]) else 84.0
-	for enemy in get_tree().get_nodes_in_group("enemies"):
+	# Ranged attacks deal damage through their projectile, including at close range.
+	var melee_reach := attack_range
+	var melee_targets: Array = [] if bool(cdata["ranged"]) else get_tree().get_nodes_in_group("enemies")
+	for enemy in melee_targets:
 		if not is_instance_valid(enemy) or not enemy.is_visible_in_tree() or enemy.hp <= 0:
 			continue
 		var offset: Vector2 = enemy.global_position - global_position
 		if offset.length() <= melee_reach and facing.dot(offset.normalized()) > 0.25:
 			var ray := PhysicsRayQueryParameters2D.create(global_position, enemy.global_position, 1)
 			if get_world_2d().direct_space_state.intersect_ray(ray).is_empty():
+				var health_before: int = int(enemy.hp)
 				enemy.take_damage(base_dmg, facing)
 				# Polish: hit spark + floating damage number
-				HitSpark.melee_hit(get_parent(), enemy.global_position, is_ambush_or_combo)
-				FloatingText.spawn_damage(get_parent(), enemy.global_position + Vector2(0, -20), base_dmg, is_ambush_or_combo)
+				# The recipient reports actual damage, including armor and bark.
 				if is_ambush_or_combo:
 					camera_shake_requested.emit(5.0, 0.18)
 					if enemy.has_method("show_floating_text"):
@@ -341,7 +342,7 @@ func attack() -> void:
 				if (is_ambush_or_combo or venom_coating_timer > 0.0 or evolution_id != "") and enemy.has_method("apply_status"):
 					enemy.apply_status(bleed_val, poison_val, 1.2 if class_id == "mage" else 0.0)
 				if evolution_id == "berserker":
-					var heal_amt := maxi(2, int(base_dmg * 0.18))
+					var heal_amt := maxi(1, int((health_before - int(enemy.hp)) * 0.10))
 					heal(heal_amt)
 					FloatingText.spawn_heal(get_parent(), global_position + Vector2(0, -16), heal_amt)
 	# Ranged classes (Archer Goblin & Mage Goblin) also launch projectiles!
@@ -371,11 +372,14 @@ func _spawn_class_projectiles(dmg: int, bleed_val: int, poison_val: int) -> void
 		shot.bleed_dps = bleed_val
 		shot.slow_time = 1.6 if class_id == "mage" else 0.0
 		shot.splash_radius = 64.0 if class_id == "mage" else 0.0
-		shot.lifesteal_ratio = 0.20 if evolution_id == "warlock" else 0.0
+		shot.lifesteal_ratio = 0.10 if evolution_id == "warlock" else 0.0
 		room_node.add_child(shot)
 
 func use_special() -> void:
-	if hp <= 0 or special_cooldown > 0.0:
+	if hp <= 0 or special_cooldown > 0.0 or dodge_time > 0.0:
+		return
+	var rpg = get_parent().get("rpg")
+	if rpg != null and not rpg.spend_stamina(SPECIAL_STAMINA_COST):
 		return
 	var cdata: Dictionary = GoblinData.CLASSES[class_id]
 	attack_facing = facing
@@ -402,9 +406,10 @@ func use_special() -> void:
 				invulnerability = maxf(invulnerability, 0.42)
 				_spawn_special_vfx("berserker", global_position, 174.0)
 				var blood_hits := _damage_special_area(global_position, 148.0, int(dmg * 1.45), 24, 0, 0.8, 0.2, "BLOODSTORM!")
-				var blood_heal := 14 + blood_hits * 8
+				var blood_heal := mini(30, blood_hits * 6)
 				heal(blood_heal)
-				FloatingText.spawn_heal(get_parent(), global_position + Vector2(0, -16), blood_heal)
+				if blood_heal > 0:
+					FloatingText.spawn_heal(get_parent(), global_position + Vector2(0, -16), blood_heal)
 				camera_shake_requested.emit(13.0, 0.38)
 			else:
 				dodge_direction = facing
@@ -447,7 +452,7 @@ func use_special() -> void:
 			camera_shake_requested.emit(5.5, 0.18)
 		"knight":
 			if evolution_id == "warlord":
-				bulwark_timer = 3.5
+				bulwark_timer = 2.8
 				_spawn_special_vfx("warlord", global_position, 184.0)
 				_damage_special_area(global_position, 158.0, int(dmg * 1.35), 0, 0, 1.2, 1.7, "WARCRY!")
 				for ally in get_tree().get_nodes_in_group("allies"):
@@ -455,18 +460,18 @@ func use_special() -> void:
 						ally.warcry_timer = 8.0
 				camera_shake_requested.emit(14.0, 0.42)
 			elif evolution_id == "guardian":
-				bulwark_timer = 8.0
+				bulwark_timer = 4.0
 				invulnerability = maxf(invulnerability, 1.0)
 				_spawn_special_vfx("guardian", global_position, 178.0)
 				_damage_special_area(global_position, 142.0, int(dmg * 0.9), 0, 0, 2.4, 2.8, "AEGIS STUN!")
-				heal(32)
-				FloatingText.spawn_heal(get_parent(), global_position + Vector2(0, -16), 32)
+				heal(20)
+				FloatingText.spawn_heal(get_parent(), global_position + Vector2(0, -16), 20)
 				for ally in get_tree().get_nodes_in_group("allies"):
 					if is_instance_valid(ally):
 						ally.hp = mini(ally.max_hp, ally.hp + 24)
 				camera_shake_requested.emit(11.0, 0.40)
 			else:
-				bulwark_timer = 4.5
+				bulwark_timer = 2.2
 				invulnerability = maxf(invulnerability, 0.55)
 				_spawn_special_vfx("knight", global_position, 148.0)
 				_damage_special_area(global_position, 125.0, dmg, 0, 0, 1.2, 1.6, "IRONQUAKE!")
@@ -477,8 +482,8 @@ func use_special() -> void:
 			if evolution_id == "shaman":
 				_spawn_special_vfx("shaman", miasma_center, 164.0)
 				_damage_special_area(miasma_center, 142.0, int(dmg * 1.05), 0, 22, 3.8, 0.5, "SPIRIT VENOM!")
-				heal(38)
-				FloatingText.spawn_heal(get_parent(), global_position + Vector2(0, -16), 38)
+				heal(30)
+				FloatingText.spawn_heal(get_parent(), global_position + Vector2(0, -16), 30)
 				for ally in get_tree().get_nodes_in_group("allies"):
 					if is_instance_valid(ally) and ally.hp > 0:
 						ally.hp = mini(ally.max_hp, ally.hp + 38)
@@ -486,9 +491,10 @@ func use_special() -> void:
 			elif evolution_id == "warlock":
 				_spawn_special_vfx("warlock", miasma_center, 182.0)
 				var soul_hits := _damage_special_area(miasma_center, 158.0, int(dmg * 1.62), 0, 18, 2.6, 0.8, "SOUL BURN!")
-				var soul_heal := 12 + soul_hits * 10
+				var soul_heal := mini(24, soul_hits * 6)
 				heal(soul_heal)
-				FloatingText.spawn_heal(get_parent(), global_position + Vector2(0, -16), soul_heal)
+				if soul_heal > 0:
+					FloatingText.spawn_heal(get_parent(), global_position + Vector2(0, -16), soul_heal)
 			elif evolution_id == "necromancer":
 				_spawn_special_vfx("necromancer", miasma_center, 172.0)
 				_damage_special_area(miasma_center, 148.0, int(dmg * 1.25), 0, 8, 4.2, 1.2, "SOUL CLAIMED!")
@@ -519,8 +525,6 @@ func _damage_special_area(center: Vector2, effect_radius: float, amount: int, bl
 		if knockback == Vector2.ZERO:
 			knockback = facing
 		enemy.take_damage(amount, knockback)
-		HitSpark.melee_hit(get_parent(), enemy.global_position, amount >= 50)
-		FloatingText.spawn_damage(get_parent(), enemy.global_position + Vector2(0, -20), amount, amount >= 50)
 		if enemy.has_method("apply_status") and (bleed > 0 or poison > 0 or slow > 0.0):
 			enemy.apply_status(bleed, poison, slow)
 		if stun > 0.0 and enemy.has_method("apply_stun"):
@@ -546,7 +550,7 @@ func _spawn_venom_barrage(room_node: Node2D, dmg: int, arrow_count: int = 5, spr
 		var shot := Projectile.new()
 		shot.global_position = global_position + facing * 24.0 + Vector2(0, -10)
 		shot.velocity = facing.rotated(angle).normalized() * 520.0
-		shot.damage = dmg if is_equal_approx(float(index), center_index) else int(dmg * 0.72)
+		shot.damage = dmg if is_equal_approx(float(index), center_index) else maxi(1, int(dmg * 0.45))
 		shot.from_player_team = true
 		shot.owner_actor = self
 		shot.style = "arrow"

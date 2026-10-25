@@ -1,3 +1,19 @@
+# Latest update: journal-only hiding and defended objectives
+
+H now hides only the journal button. The useful HUD stays visible, and the floating H box is removed. Normal detection is now 150 pixels. Supply bundles and the ledger require defeating their nearby defenders. See [HUD-AND-GUARDED-COMBAT.md](HUD-AND-GUARDED-COMBAT.md).
+
+# Latest update: shorter aggro and the final Cinder bonus
+
+Enemy detection and pursuit are shorter. Complete Moss's nine main boss hunts, then accept **Cinder Orchard · The Last Ember** as the final extreme-difficulty bonus quest. Existing saves and earlier Cinder credit are preserved. See [AGGRO-AND-CINDER-BONUS.md](AGGRO-AND-CINDER-BONUS.md) for details.
+
+# Latest update: combat balance
+
+Trail enemies and bosses are tougher, repeated expeditions have bounded danger ranks, ranged attacks no longer double-hit at close range, defensive buffs have downtime, and potions have a short cooldown. The new opening screen, compact HUD, and Start over option are included. See [BALANCE-TUNING.md](BALANCE-TUNING.md) for exact changes and validation.
+
+# Latest update: painted Cinder Orchard and ten boss quests
+
+Speak to Moss and choose **Boss hunts · Defend the den**. The Cinder Orchard now has painted creature poses, scenery, animated hazards, and a kiln mosaic. The ten-hunt progression includes every boss, with saved rewards and compass guidance. See [CINDER-AND-BOSS-QUESTS.md](CINDER-AND-BOSS-QUESTS.md).
+
 # Goblin Den — Connected Opening
 
 Open project.godot in Godot and press F5. This is the latest editable game project.

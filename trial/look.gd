@@ -3,6 +3,27 @@ extends RefCounted
 const PALE := Color("f3e6c8")
 const GOLD := Color("e2c07a")
 
+static func hud_frame() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.025,0.042,0.036,0.89)
+	style.border_color = Color(0.5,0.43,0.29,0.8)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	return style
+
+static func toolbar(button: Button, width: float) -> void:
+	dress(button)
+	button.add_theme_font_size_override("font_size",12)
+	button.custom_minimum_size = Vector2(width,28)
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	for state in ["normal","hover","pressed","focus"]:
+		var style := hud_frame()
+		style.set_content_margin_all(4)
+		if state != "normal":
+			style.border_color = GOLD
+			style.bg_color = Color("1d3026")
+		button.add_theme_stylebox_override(state,style)
+
 static func panel(translucent: bool = false, margin: int = 20) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.035, 0.055, 0.045, 0.78 if translucent else 0.96)

@@ -19,7 +19,8 @@ func run() -> void:
 		enemy.set_physics_process(false)
 	var dungeon = game.rpg.dungeon
 	var cave = game.get_node("Cave")
-	check(game.rooms.size()==16,"Three floors appended without renumbering old rooms")
+	check(game.rooms.size()==17,"Three dungeon floors stay put; the Cinder Orchard is appended after them")
+	check(str(game.ROOM_NAMES[15]).contains("SEALED DESCENT") and str(game.ROOM_NAMES[16])=="CINDER ORCHARD","New area does not renumber the sealed descent")
 	game.enter_room(12,Vector2(1000,365))
 	check(dungeon.try_interact() and game.current_room==13,"Dungeon entrance follows last area")
 	for floor_id in range(13,16):

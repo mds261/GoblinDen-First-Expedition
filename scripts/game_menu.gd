@@ -6,6 +6,7 @@ var overlay: ColorRect
 var content: VBoxContainer
 var controls_visible := false
 var audio_visible := false
+var restart_visible := false
 func _ready() -> void:
 	layer = 30
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -20,7 +21,11 @@ func _ready() -> void:
 	overlay.add_child(panel)
 	content = VBoxContainer.new()
 	content.add_theme_constant_override("separation",12)
-	panel.add_child(content)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(content)
 	overlay.hide()
 func _input(event: InputEvent) -> void:
 	if overlay.visible and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
@@ -40,6 +45,7 @@ func open() -> void:
 		return
 	controls_visible = false
 	audio_visible = false
+	restart_visible = false
 	_rebuild()
 	overlay.show()
 	get_tree().paused = true
@@ -69,7 +75,13 @@ func _rebuild() -> void:
 		child.queue_free()
 	_label("AUDIO" if audio_visible else ("FIELD GUIDE" if controls_visible else "GOBLIN DEN"),26,Color("e7d7b0"))
 	_label("Music & sound effects" if audio_visible else ("Controls & training" if controls_visible else "A moment by the fire"),14,Color("a7b19b"))
-	if audio_visible:
+	if restart_visible:
+		_label("Start a new journey?",24,Color("e7d7b0"))
+		_label("This resets your goblin, inventory, upgrades, expeditions, boss hunts, and explored areas. You will return to the opening class selection. Your audio settings stay as they are.",16,Color("ded9c8"))
+		_label("A backup of the current journey will be kept before the reset.",14,Color("a7b19b"))
+		_button("Start over · New journey",func(): game.start_over())
+		_button("Keep my current journey",func(): restart_visible = false; _rebuild())
+	elif audio_visible:
 		_label("Adjust the soundtrack and world sounds separately. Set either slider to zero to mute it.",15,Color("ded9c8"))
 		_audio_slider("Music",game.audio_system.music_level,game.audio_system.set_music_volume)
 		_audio_slider("Sound effects",game.audio_system.effects_level,game.audio_system.set_effects_volume)
@@ -80,8 +92,9 @@ func _rebuild() -> void:
 		_label("TRAVEL & COMBAT",12,Color("ba9a61"))
 		_label("WASD                    Move\nMouse                  Aim\nLeft click / Space   Attack\nRight click / Q       Class special\nShift                     Dodge\nF                           Drink potion",15,Color("ded9c8"))
 		_label("DEN ROUTES · Treasure north, armory south, daylight east. The Rootvein nest is optional.",13,Color("a7b19b"))
+		_label("STAMINA · Dodge costs 30; specials cost 20. Recovery begins after 0.9 seconds at 20 per second. Basic attacks and walking are free.",13,Color("d6bd84"))
 		_label("YOUR GOBLIN",12,Color("ba9a61"))
-		_label("E  ·  Nearby interaction     I  ·  Backpack & equipment\n1–4  ·  Class     C  ·  Evolution     Tab  ·  Codex\nM  ·  Map     Enter  ·  Journal/chat     Esc  ·  Menu",14,Color("ded9c8"))
+		_label("E  ·  Nearby interaction     I  ·  Backpack & equipment\n1–4  ·  Class     C  ·  Evolution     Tab  ·  Codex\nJ  ·  Journal     M  ·  Map     H  ·  Journal shortcut\nR  ·  Start over     Enter  ·  Chat     Esc  ·  Menu",14,Color("ded9c8"))
 		_label("Assigned spells use the keys in the action belt. Change spell assignments and keys in your backpack. The Training Pit unlocks class evolutions.",13,Color("a7b19b"))
 		_button("Back",func(): controls_visible = false; _rebuild())
 	else:
@@ -89,8 +102,10 @@ func _rebuild() -> void:
 		_button("Resume",close)
 		_button("Controls & training",func(): controls_visible = true; _rebuild())
 		_button("Audio",func(): audio_visible = true; _rebuild())
+		_button("Show journal button [H]" if game.expedition.journal_hidden else "Hide journal button [H]",func(): game.expedition.ui.toggle_journal_shortcut(); _rebuild())
 		_button("Backpack & equipment",func(): close(); game.rpg.panel.show(); game.rpg._refresh_panel())
 		_button("Tribe codex",func(): close(); game.codex_panel.show(); game._refresh_codex_text())
+		_button("Start over… [R]",func(): restart_visible = true; _rebuild())
 		_label("Progress saves automatically. Press Esc to return to the world.",13,Color("a7b19b"))
 
 

@@ -80,6 +80,11 @@
       "name": "SEALED DESCENT — FLOOR 3",
       "index": 15,
       "id": "room_15"
+    },
+    {
+      "name": "CINDER ORCHARD",
+      "index": 16,
+      "id": "room_16"
     }
   ]
 }

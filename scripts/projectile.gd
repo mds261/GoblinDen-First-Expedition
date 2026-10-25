@@ -57,6 +57,9 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 func _apply_to_enemy(primary_enemy: Node2D) -> void:
+	if not is_instance_valid(primary_enemy) or primary_enemy.hp <= 0:
+		return
+	var health_before: int = int(primary_enemy.hp)
 	var dir := velocity.normalized()
 	if splash_radius > 0.0:
 		for enemy in get_tree().get_nodes_in_group("enemies"):
@@ -66,22 +69,17 @@ func _apply_to_enemy(primary_enemy: Node2D) -> void:
 				var mult := 1.0 if enemy == primary_enemy else 0.65
 				var dealt := maxi(1, int(damage * mult))
 				enemy.take_damage(dealt, dir * 0.5)
-				_show_damage(enemy, dealt)
 				if enemy.has_method("apply_status"):
 					enemy.apply_status(bleed_dps, poison_dps, slow_time)
 	else:
 		primary_enemy.take_damage(damage, dir * 0.6)
-		_show_damage(primary_enemy, damage)
 		if primary_enemy.has_method("apply_status"):
 			primary_enemy.apply_status(bleed_dps, poison_dps, slow_time)
-	if lifesteal_ratio > 0.0 and is_instance_valid(owner_actor) and owner_actor.get("hp") != null:
-		owner_actor.hp = mini(owner_actor.max_hp, owner_actor.hp + maxi(1, int(damage * lifesteal_ratio)))
+	var drained_damage := maxi(0,health_before - int(primary_enemy.hp))
+	if drained_damage > 0 and lifesteal_ratio > 0.0 and is_instance_valid(owner_actor) and owner_actor.get("hp") != null:
+		owner_actor.hp = mini(owner_actor.max_hp, owner_actor.hp + maxi(1, int(drained_damage * lifesteal_ratio)))
 		if owner_actor.has_signal("health_changed"):
 			owner_actor.health_changed.emit(owner_actor.hp, owner_actor.max_hp)
-
-func _show_damage(enemy: Node2D, amount: int) -> void:
-	if is_instance_valid(owner_actor) and owner_actor.is_in_group("player"):
-		FloatingText.spawn_damage(enemy.get_parent(), enemy.global_position + Vector2(0, -20), amount, false)
 
 func _detonate() -> void:
 	hit_done = true
