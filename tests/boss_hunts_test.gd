@@ -22,7 +22,7 @@ func run() -> void:
 	game.player.set_physics_process(false)
 	game.player.invulnerability = 99999
 	var hunts = game.rpg.boss_hunts
-	check(hunts.quests().size() == 10, "All ten authored bosses have quests")
+	check(hunts.quests().size() == 11, "All authored bosses have quests")
 	game.enter_room(0,game.expedition.moss_position(),true)
 	hunts.accept()
 	game._auto_save()
@@ -40,7 +40,7 @@ func run() -> void:
 		game.enter_room(0,game.expedition.moss_position(),true)
 		hunts.accept()
 		check(hunts.accepted, "Moss accepts " + str(quest.id))
-		var entrances := {0:Vector2(640,1408),5:Vector2(220,365),6:game.EXPANSE_SPAWN,11:Vector2(230,365),12:Vector2(230,365),15:preload("res://scripts/dungeon_layout.gd").entry(15),16:preload("res://scripts/cinder_orchard_layout.gd").SPAWN}
+		var entrances := {0:Vector2(640,1408),5:Vector2(220,365),6:game.EXPANSE_SPAWN,11:Vector2(230,365),12:Vector2(230,365),15:preload("res://scripts/dungeon_layout.gd").entry(15),16:preload("res://scripts/cinder_orchard_layout.gd").SPAWN,19:preload("res://scripts/thornveil_layout.gd").GLADE_SPAWN}
 		game.enter_room(int(quest.room),entrances[int(quest.room)],true)
 		await physics_frame
 		var cave = game.get_node("Cave")
@@ -55,6 +55,10 @@ func run() -> void:
 			boss = game.rpg.orchard.boss
 			boss.awaken()
 			boss.boss_state = "exposed"
+		elif quest.boss_id == "bramble_crown":
+			boss = game.rpg.thornveil.boss
+			boss.awaken()
+			boss.boss_state = "stagger"
 		elif quest.boss_id == "vault_hunger":
 			boss = game.rpg.dungeon.boss
 			boss.awaken()
@@ -70,7 +74,7 @@ func run() -> void:
 		hunts.claim()
 		check(game.scrap == before + int(quest.reward_scrap), "No duplicate reward")
 		game.expedition.ui.close()
-	check(hunts.current().is_empty(), "Full progression ends after the Cinder bonus")
+	check(hunts.current().is_empty(), "Full progression ends after the Thornveil hunt")
 	game._auto_save()
 	game.queue_free()
 	await process_frame
@@ -78,8 +82,8 @@ func run() -> void:
 	root.add_child(game)
 	current_scene = game
 	game.expedition.ui.close()
-	check(game.rpg.boss_hunts.claimed.size() == 10 and game.rpg.boss_hunts.current().is_empty(), "Completed quests survive an actual reload")
-	check(game.rpg.orchard.boss == null and game.rpg.dungeon.boss == null, "Persistent bosses stay defeated")
+	check(game.rpg.boss_hunts.claimed.size() == 11 and game.rpg.boss_hunts.current().is_empty(), "Completed quests survive an actual reload")
+	check(game.rpg.orchard.boss == null and game.rpg.dungeon.boss == null and game.rpg.thornveil.boss == null, "Persistent bosses stay defeated")
 	game.queue_free()
 	await process_frame
 	Save.delete_save()

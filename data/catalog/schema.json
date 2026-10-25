@@ -1047,6 +1047,66 @@
       "kind": "string",
       "role": "string",
       "id": "string"
+    },
+    "thornveil_warden": {
+      "name": "string",
+      "hp": "number",
+      "speed": "number",
+      "damage": "number",
+      "scrap": "number",
+      "xp": "number",
+      "loot": "string",
+      "kind": "string",
+      "role": "string",
+      "id": "string"
+    },
+    "thornveil_poacher": {
+      "name": "string",
+      "hp": "number",
+      "speed": "number",
+      "damage": "number",
+      "scrap": "number",
+      "xp": "number",
+      "loot": "string",
+      "kind": "string",
+      "role": "string",
+      "id": "string"
+    },
+    "thornveil_seer": {
+      "name": "string",
+      "hp": "number",
+      "speed": "number",
+      "damage": "number",
+      "scrap": "number",
+      "xp": "number",
+      "loot": "string",
+      "kind": "string",
+      "role": "string",
+      "id": "string"
+    },
+    "thornling": {
+      "name": "string",
+      "hp": "number",
+      "speed": "number",
+      "damage": "number",
+      "scrap": "number",
+      "xp": "number",
+      "loot": "string",
+      "kind": "string",
+      "role": "string",
+      "id": "string"
+    },
+    "bramble_crown": {
+      "name": "string",
+      "hp": "number",
+      "speed": "number",
+      "damage": "number",
+      "scrap": "number",
+      "xp": "number",
+      "loot": "string",
+      "kind": "string",
+      "role": "string",
+      "id": "string"
     }
   },
   "travelers": {
@@ -1892,6 +1952,21 @@
       "hint": "string",
       "reward_scrap": "number",
       "reward_xp": "number"
+    },
+    "hunt_bramble_crown": {
+      "id": "string",
+      "name": "string",
+      "boss_hunt": "bool",
+      "bonus": "bool",
+      "boss_id": "string",
+      "room": "number",
+      "x": "number",
+      "y": "number",
+      "destination": "string",
+      "description": "string",
+      "hint": "string",
+      "reward_scrap": "number",
+      "reward_xp": "number"
     }
   },
   "classes": {
@@ -2058,6 +2133,21 @@
       "id": "string"
     },
     "room_16": {
+      "name": "string",
+      "index": "number",
+      "id": "string"
+    },
+    "room_17": {
+      "name": "string",
+      "index": "number",
+      "id": "string"
+    },
+    "room_18": {
+      "name": "string",
+      "index": "number",
+      "id": "string"
+    },
+    "room_19": {
       "name": "string",
       "index": "number",
       "id": "string"

@@ -85,6 +85,21 @@
       "name": "CINDER ORCHARD",
       "index": 16,
       "id": "room_16"
+    },
+    {
+      "name": "THORNVEIL APPROACH",
+      "index": 17,
+      "id": "room_17"
+    },
+    {
+      "name": "THORNVEIL SHRINE",
+      "index": 18,
+      "id": "room_18"
+    },
+    {
+      "name": "THORNVEIL CROWN GLADE",
+      "index": 19,
+      "id": "room_19"
     }
   ]
 }

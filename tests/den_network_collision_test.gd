@@ -26,7 +26,7 @@ func run_checks() -> void:
 		enemy.set_physics_process(false)
 	game.player.set_physics_process(false)
 	var cave = game.get_node("Cave")
-	check(game.rooms.size() == 17, "Existing areas, three quest dungeon floors, and the optional Cinder Orchard")
+	check(game.rooms.size() == 20, "Existing areas, dungeon floors, Cinder Orchard, and Thornveil rooms")
 	var station_count := 0
 	for room in game.rooms:
 		for child in room.get_children():

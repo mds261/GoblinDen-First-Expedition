@@ -47,7 +47,7 @@ func run() -> void:
 	game.rpg.boss_hunts.accept()
 	game.player.set_physics_process(false)
 	await physics_frame
-	check(game.rooms.size() == 17 and game.ROOM_NAMES[16] == "CINDER ORCHARD", "Orchard is room 16 and older rooms stay numbered")
+	check(game.rooms.size() == 20 and game.ROOM_NAMES[16] == "CINDER ORCHARD", "Orchard is room 16 and older rooms stay numbered")
 	check(game.ROOM_NAMES[15].contains("SEALED DESCENT"), "Sealed Descent remains the previous area")
 	check(game.current_room == 0, "Demo still starts in the den")
 	check(Layout.HOLLOW_ENTRANCE.distance_to(game.RIGHT_GATE) > 200.0, "Heat-crack is off the eastern gate")

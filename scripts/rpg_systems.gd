@@ -22,6 +22,7 @@ const DEEP_CAVE := 12
 var exploration_map: Node2D
 var dungeon: Node2D
 var orchard: Node2D
+var thornveil: Node2D
 var boss_hunts = preload("res://scripts/boss_hunts.gd").new()
 var game: Node2D
 var items: Dictionary = {}
@@ -138,6 +139,9 @@ func _ready() -> void:
 	orchard = preload("res://scripts/cinder_orchard.gd").new()
 	orchard.game = game
 	add_child(orchard)
+	thornveil = preload("res://scripts/thornveil.gd").new()
+	thornveil.game = game
+	add_child(thornveil)
 	boss_hunts.game = game
 	add_child(boss_hunts)
 	log_event("System", "The den is quiet. Your journey begins.")
@@ -500,6 +504,8 @@ func interaction_candidates() -> Array:
 	options.append_array(dungeon.interaction_candidates())
 	if orchard != null:
 		options.append_array(orchard.interaction_candidates())
+	if thornveil != null:
+		options.append_array(thornveil.interaction_candidates())
 	return options
 
 func try_interact() -> bool:
@@ -1113,7 +1119,7 @@ func _chat_submit(text: String) -> void:
 		log_event("General", "You: " + text)
 
 func snapshot() -> Dictionary:
-	return {"opening_layout":2,"opening_cleared":game.opening_cleared,"monster_corpses":monster_corpses,"loot_serial":loot_serial,"pack": backpack.slots, "capacity": backpack.capacity, "chest": chest.slots, "chest_capacity": chest.capacity, "depot": depot.slots, "equipped": equipped, "proficiencies": proficiencies, "attributes": attributes, "points": points, "learned": learned, "bindings": bindings, "keycodes": keycodes, "corpses": corpses, "discovered": discovered, "quest": quest_claimed, "kills": kills, "mana": mana, "stamina": stamina, "stamina_recovery_delay": stamina_recovery_delay, "world_hour": world_hour, "cooldowns": cooldowns, "weather": weather, "travelers": travelers, "talked_npcs": talked_npcs, "wanderer_counter": wanderer_counter, "dungeon": dungeon.snapshot(), "exploration_map": exploration_map.snapshot(), "orchard": orchard.snapshot(), "boss_hunts": boss_hunts.snapshot()}
+	return {"opening_layout":2,"opening_cleared":game.opening_cleared,"monster_corpses":monster_corpses,"loot_serial":loot_serial,"pack": backpack.slots, "capacity": backpack.capacity, "chest": chest.slots, "chest_capacity": chest.capacity, "depot": depot.slots, "equipped": equipped, "proficiencies": proficiencies, "attributes": attributes, "points": points, "learned": learned, "bindings": bindings, "keycodes": keycodes, "corpses": corpses, "discovered": discovered, "quest": quest_claimed, "kills": kills, "mana": mana, "stamina": stamina, "stamina_recovery_delay": stamina_recovery_delay, "world_hour": world_hour, "cooldowns": cooldowns, "weather": weather, "travelers": travelers, "talked_npcs": talked_npcs, "wanderer_counter": wanderer_counter, "dungeon": dungeon.snapshot(), "exploration_map": exploration_map.snapshot(), "orchard": orchard.snapshot(), "thornveil": thornveil.snapshot(), "boss_hunts": boss_hunts.snapshot()}
 
 func restore(state: Dictionary) -> void:
 	if state.is_empty():
@@ -1162,6 +1168,8 @@ func restore(state: Dictionary) -> void:
 	dungeon.restore(state.get("dungeon", {}))
 	if orchard != null:
 		orchard.restore(state.get("orchard", {}))
+	if thornveil != null:
+		thornveil.restore(state.get("thornveil", {}))
 	boss_hunts.restore(state.get("boss_hunts", {}))
 	exploration_map.restore(state.get("exploration_map", {}))
 	if int(state.get("opening_layout",0))<2:
