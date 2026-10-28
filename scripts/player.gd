@@ -293,6 +293,8 @@ func start_dodge() -> void:
 	invulnerability = maxf(invulnerability, 0.25)
 
 func attack() -> void:
+	var journey = get_parent().get("expedition")
+	if journey!=null: journey.living.smoke_time = 0
 	if hp <= 0 or attack_cooldown > 0.0 or dodge_time > 0.0:
 		return
 	var cdata: Dictionary = GoblinData.CLASSES[class_id].duplicate()
@@ -376,6 +378,8 @@ func _spawn_class_projectiles(dmg: int, bleed_val: int, poison_val: int) -> void
 		room_node.add_child(shot)
 
 func use_special() -> void:
+	var journey = get_parent().get("expedition")
+	if journey!=null: journey.living.smoke_time = 0
 	if hp <= 0 or special_cooldown > 0.0 or dodge_time > 0.0:
 		return
 	var rpg = get_parent().get("rpg")

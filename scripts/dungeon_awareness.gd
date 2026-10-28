@@ -15,6 +15,9 @@ func configure(actor: CharacterBody2D) -> void:
 	unseen_time = 0.0
 
 func sees(actor: CharacterBody2D, point: Vector2) -> bool:
+	var game = actor.get_tree().current_scene
+	if actor.has_meta("expedition_id") and game!=null and game.get("expedition")!=null and game.expedition.living.smoke_time>0:
+		return false
 	var ray := PhysicsRayQueryParameters2D.create(actor.global_position,point,1)
 	return actor.get_world_2d().direct_space_state.intersect_ray(ray).is_empty()
 
