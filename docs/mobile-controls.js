@@ -1,7 +1,7 @@
 /* Touch-only browser controls using GoblinDen's existing keyboard bindings. */
 (() => {
   'use strict';
-  if (!(navigator.maxTouchPoints > 0 || matchMedia('(pointer: coarse)').matches)) return;
+  const mobileMode = matchMedia('(hover: none) and (pointer: coarse)');
   function mount() {
     const canvas = document.getElementById('canvas');
     if (!canvas || document.getElementById('goblinden-touch')) return;
@@ -63,6 +63,10 @@
       knob.style.transform = '';
       root.querySelectorAll('.held').forEach(el => el.classList.remove('held'));
     }
+    mobileMode.addEventListener('change', () => {
+      releaseAll();
+      root.style.display = mobileMode.matches ? '' : 'none';
+    });
     function moveStick(event) {
       const rect = stick.getBoundingClientRect();
       const radius = rect.width * .38;
@@ -123,6 +127,10 @@
     const observer = new MutationObserver(ready);
     observer.observe(document.body,{childList:true}); ready();
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',mount,{once:true});
-  else mount();
+  function updateMode() {
+    if (mobileMode.matches) mount();
+  }
+  mobileMode.addEventListener('change', updateMode);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',updateMode,{once:true});
+  else updateMode();
 })();

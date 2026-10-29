@@ -17,7 +17,7 @@ class Element {
   getBoundingClientRect(){return {left:24,top:200,width:120,height:120};}
   querySelectorAll(q){if(q==='[data-code]')return this.buttons||[];return (this.buttons||[]).filter(b=>b.classes.has('held'));}
 }
-function setup(touch=1,loading=false) {
+function setup(touch=1,loading=false,mobile=touch>0) {
   const all = {}; const keys=[];
   const doc = new Element();doc.readyState='complete';doc.hidden=false;
   doc.head=new Element();doc.head.appendChild=()=>{};
@@ -35,12 +35,17 @@ function setup(touch=1,loading=false) {
   doc.createElement=()=>new Element();
   doc.querySelector=()=>null;
   const win=new Element();let observer;
-  vm.runInNewContext(source,{navigator:{maxTouchPoints:touch},matchMedia:()=>({matches:false}),
+  const media = new Element();media.matches=mobile;
+  vm.runInNewContext(source,{navigator:{maxTouchPoints:touch},matchMedia:()=>media,
     document:doc,window:win,KeyboardEvent:class{constructor(type,props){this.type=type;Object.assign(this,props)}},
     MutationObserver:class{constructor(fn){observer=fn;}observe(){}disconnect(){}}});
-  return {all,keys,doc,win,loaded(){delete all.status;observer();}};
+  return {all,keys,doc,win,setMobile(value){media.matches=value;media.emit('change');},loaded(){delete all.status;observer();}};
 }
 assert.equal(setup(0).all['goblinden-touch'],undefined,'desktop must stay unchanged');
+const desktopTouch=setup(10,false,false);
+assert.equal(desktopTouch.all['goblinden-touch'],undefined,'touchscreen desktop must not show controls');
+desktopTouch.setMobile(true);
+assert(desktopTouch.all['goblinden-touch'],'entering mobile mode mounts controls');
 const t=setup(1,true), root=t.all['goblinden-touch'];
 assert(!root.classes.has('ready'));t.loaded();assert(root.classes.has('ready'));
 const button=code=>root.buttons.find(b=>b.dataset.code===code);
@@ -68,4 +73,9 @@ t.all['gd-toggle'].emit('click');assert(root.classes.has('folded'));
 t.all['gd-toggle'].emit('click');assert(!root.classes.has('folded'));
 t.doc.hidden=true;button('Space').emit('pointerdown');t.doc.emit('visibilitychange');
 assert.equal(t.keys.at(-1)[0],'keyup');
+button('Space').emit('pointerdown');t.setMobile(false);
+assert.equal(t.keys.at(-1)[0],'keyup','leaving mobile mode releases held input');
+assert.equal(root.style.display,'none','desktop mode hides controls');
+t.setMobile(true);
+assert.equal(root.style.display,'','returning to mobile mode restores controls');
 console.log('PASS: desktop isolation, loading gate, diagonal movement, simultaneous movement/attack, every action, multiple fingers, cancellation, app switching, hide/show, background release.');
