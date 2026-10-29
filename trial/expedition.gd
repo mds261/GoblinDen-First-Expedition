@@ -20,8 +20,10 @@ var scenery: Node2D
 var save_clock := 0.0
 var initialized := false
 var journal_hidden := true
+var living = preload("res://trial/living_world.gd").new()
 
 func _ready() -> void:
+	living.director = self
 	ui = preload("res://trial/expedition_ui.gd").new()
 	ui.director = self
 	add_child(ui)
@@ -39,9 +41,10 @@ func _ready() -> void:
 		ui.announce("HEARTH HALL", "A fire worth coming home to")
 
 func snapshot() -> Dictionary:
-	return {"journal_hidden":journal_hidden,"version":2,"active":active.duplicate(true),"serial":serial,"completions":completions,"upgrades":upgrades.duplicate(),"last_summary":last_summary.duplicate(true),"welcomed":welcomed,"rite_id":rite_id,"best_combo":best_combo}
+	return {"living_world":living.snapshot(),"journal_hidden":journal_hidden,"version":2,"active":active.duplicate(true),"serial":serial,"completions":completions,"upgrades":upgrades.duplicate(),"last_summary":last_summary.duplicate(true),"welcomed":welcomed,"rite_id":rite_id,"best_combo":best_combo}
 
 func restore(state: Dictionary) -> void:
+	living.restore(state.get("living_world",{}))
 	journal_hidden = bool(state.get("journal_hidden",state.get("hud_collapsed",true)))
 	active = state.get("active",{}).duplicate(true)
 	serial = int(state.get("serial",0))
@@ -94,6 +97,7 @@ func begin(kind: int, seed_override: int = -1) -> bool:
 		if arg.begins_with("--expedition-seed="):
 			chosen_seed = int(arg.get_slice("=",1)) + serial - 1
 	active = Data.generate(kind, chosen_seed, serial)
+	living.prepare(active)
 	# Freeze a bounded danger rank for this expedition; reloads do not reroll it.
 	active["threat"] = mini(5,int(completions / 2) + int(game.rpg.boss_hunts.completed_count() / 3))
 	welcomed = true
@@ -109,6 +113,9 @@ func begin(kind: int, seed_override: int = -1) -> bool:
 	return true
 
 func clear_encounters() -> void:
+	for hazard in get_tree().get_nodes_in_group("expedition_hazards"):
+		hazard.get_parent().remove_child(hazard)
+		hazard.queue_free()
 	for npc in get_tree().get_nodes_in_group("expedition_npcs"):
 		npc.get_parent().remove_child(npc)
 		npc.queue_free()
@@ -121,6 +128,9 @@ func spawn(id: String, room: int, at: Vector2, role: String, elite: bool = false
 	if id in active.defeated:
 		return
 	var stats := Data.encounter_stats(int(active.get("threat",mini(5,int(completions / 2)))),elite)
+	var difficulty := float(active.get("difficulty",1.0))
+	stats.hp = maxi(1,int(stats.hp*difficulty))
+	stats.damage = maxi(1,int(stats.damage*difficulty))
 	var title := "THORNWOOD WATCHER" if elite else "TRAIL " + role.to_upper()
 	game.spawn_enemy_ext(room,at,title,int(stats.hp),float(stats.speed),int(stats.damage),7 if elite else 3,role,25,"","",true)
 	var enemy = game.rooms[room].get_child(game.rooms[room].get_child_count()-1)
@@ -130,7 +140,7 @@ func spawn(id: String, room: int, at: Vector2, role: String, elite: bool = false
 	enemy.dungeon_awareness = Awareness.new()
 	enemy.dungeon_awareness.configure(enemy)
 	var profile := encounter_weather()
-	enemy.dungeon_awareness.notice_scale = float(profile.notice)
+	enemy.dungeon_awareness.notice_scale = float(profile.notice)*patrol_notice_scale()
 	enemy.speed = float(enemy.speed) * float(profile.move)
 
 func populate() -> void:
@@ -160,6 +170,13 @@ func populate() -> void:
 		game.rooms[6].add_child(scout)
 		scout.add_to_group("expedition_npcs")
 		scout.set_physics_process(false)
+	if active.has("biome"):
+		for i in range(3):
+			var hazard = preload("res://trial/biome_hazard.gd").new()
+			hazard.director = self
+			hazard.kind = "fire" if "nest_burned" in living.flags else str(active.biome.hazard)
+			hazard.position = active.sites[i]+Vector2(-85,0)
+			game.rooms[6].add_child(hazard)
 	game.enter_room(game.current_room,game.player.position,true)
 
 func record_defeat(enemy: Node2D) -> void:
@@ -207,13 +224,13 @@ func objects() -> Array:
 			result.append({"id":"cache_%d"%i,"room":6,"point":active.sites[i],"label":"Recover supply bundle","kind":"cache"})
 	if int(active.kind)==2:
 		result.append({"id":"ledger","room":6,"point":active.sites[0],"label":"Take the scouting ledger","kind":"cache"})
-	result.append({"id":"event","room":6,"point":Vector2(780,790),"label":Data.EVENTS[int(active.event)],"kind":"event"})
+	result.append({"id":"event","room":6,"point":Vector2(780,790),"label":preload("res://trial/chronicle_data.gd").CHAPTERS[living.chapter].title if living.is_story() else Data.EVENTS[int(active.event)],"kind":"event"})
 	result.append({"id":"herbs","room":5,"point":Vector2(460,460),"label":"Gather bloodmoss · 3 herbs","kind":"herbs"})
 	result.append({"id":"bonus","room":6,"point":Data.BONUS,"label":"Open the Watcher's cache · optional danger","kind":"bonus"})
 	return result
 
 func candidates() -> Array:
-	var result: Array = []
+	var result: Array = living.surrender_candidates()
 	for entry in objects():
 		if entry.room==game.current_room and not entry.id in active.taken:
 			var defenders := defenders_for(str(entry.id))
@@ -240,6 +257,11 @@ func defenders_for(id: String) -> Array:
 	return required.filter(func(guard_id): return not guard_id in active.defeated)
 
 func interact_object(id: String) -> bool:
+	if id=="event" and living.is_story():
+		if game.current_room!=6 or game.player.position.distance_to(Vector2(780,790))>90:
+			return false
+		ui.open("choice")
+		return true
 	if active.is_empty() or active.claimed or id in active.taken:
 		return false
 	var entry: Dictionary = {}
@@ -284,6 +306,8 @@ func resolve_event(help: bool) -> bool:
 			game.show_notice("You need a potion to help. You can return later.")
 			return false
 		game.potions -= 1
+		living.marks += 2
+		living.reputation.Reedclaw = mini(100,int(living.reputation.Reedclaw)+10)
 		active.discoveries.append("Saved a lost scout")
 		active.resources += 2
 	elif help:
@@ -312,11 +336,15 @@ func shortcut() -> bool:
 	return true
 
 func claim() -> bool:
+	if living.is_story() and not living.choice_done():
+		game.show_notice("The chapter still has a decision waiting at the sheltered cart. Follow the compass.")
+		return false
 	if not home() or active.is_empty() or not active.ready or active.claimed:
 		return false
 	var contract: Dictionary = Data.CONTRACTS[int(active.kind)]
 	var reward := int(contract.scrap) + (18 if active.bonus else 0) + (8 if "Saved a lost scout" in active.discoveries else 0)
 	var xp := int(contract.xp) + (45 if active.bonus else 0)
+	living.claimed()
 	active.claimed = true
 	completions += 1
 	hearth_bloom = 12.0
@@ -335,6 +363,8 @@ func claim() -> bool:
 func abandon() -> bool:
 	if not home() or active.is_empty() or active.claimed:
 		return false
+	# A committed choice survives an early return; it can never pay out twice.
+	living.claimed()
 	clear_encounters()
 	active = {}
 	combo = 0
@@ -374,6 +404,8 @@ func target_point() -> Vector2:
 		return game.rpg.boss_hunts.target_point() if game.rpg.boss_hunts.accepted else Thornveil.APPROACH_TO_HOLLOW if game.current_room == Thornveil.APPROACH else (Thornveil.SHRINE_TO_APPROACH if game.current_room == Thornveil.SHRINE else Thornveil.GLADE_TO_SHRINE)
 	if game.current_room!=6:
 		return Vector2(145,365)
+	if living.is_story() and active.ready and not living.choice_done():
+		return Vector2(780,790)
 	if active.ready:
 		return Vector2(700,350)
 	if int(active.kind)==2:
@@ -397,6 +429,8 @@ func objective_text() -> String:
 		return "Crown Glade · Root memories %s · Break the Bramble Crown" % progress if game.current_room == Thornveil.GLADE else "Thornveil · Root memories %s · Follow the northern hunter road" % progress
 	if active.is_empty() or active.claimed:
 		return "Speak to Moss · Choose your next expedition [J]"
+	if living.is_story() and active.ready and not living.choice_done():
+		return "Chapter decision · Investigate the sheltered cart in Thornwood Expanse"
 	if active.ready:
 		return "Contract complete · Return to Moss, or seek the bonus cache"
 	var progress := 0
@@ -430,7 +464,10 @@ func on_room_entered() -> void:
 					enemy.position = floor_point
 					enemy.dungeon_awareness.configure(enemy)
 					var profile := encounter_weather()
-					enemy.dungeon_awareness.notice_scale = float(profile.notice)
+					enemy.dungeon_awareness.notice_scale = float(profile.notice)*patrol_notice_scale()
+		for hazard in get_tree().get_nodes_in_group("expedition_hazards"):
+			if game.current_room==6:
+				hazard.position = cave.navigation.get_point_position(cave._nearest_open_cell(hazard.position))
 		var heading: String = str(game.room_label.text).to_upper()
 		var line := "The fire is still burning"
 		if game.current_room==5:
@@ -448,6 +485,7 @@ func on_room_entered() -> void:
 func _process(delta: float) -> void:
 	if get_tree().paused or ui.overlay.visible:
 		return
+	living.tick(delta)
 	hearth_bloom = maxf(0.0, hearth_bloom-delta)
 	if not active.is_empty() and not active.claimed:
 		active.elapsed += delta
@@ -455,3 +493,13 @@ func _process(delta: float) -> void:
 		if save_clock>20:
 			save_clock = 0
 			game._auto_save()
+
+func patrol_notice_scale() -> float:
+	var scale_value := 1.0
+	if "scout_saved" in living.flags: scale_value *= 0.85
+	if living.legacy_mode and living.deaths>0: scale_value *= 1.15
+	if active.has("biome"):
+		var rep := int(living.reputation.get(str(active.biome.faction),0))
+		if rep<=-20: scale_value *= 1.2
+		elif rep>=20: scale_value *= 0.85
+	return scale_value

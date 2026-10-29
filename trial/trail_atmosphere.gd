@@ -85,7 +85,18 @@ func _draw() -> void:
 	if game.player.stealth_ambush:
 		light(player_at, 70+sin(time*4)*8, Color(0.4,0.85,0.62,0.28))
 		draw_arc(player_at, 36, 0, TAU, 32, Color(0.55,0.95,0.7,0.7), 2, true)
+	if director.living.smoke_time>0:
+		light(player_at,100,Color(0.7,0.8,0.75,0.24))
+		draw_arc(player_at,48,0,TAU,40,Color(0.65,0.9,0.8,0.7),2,true)
 	if room==0:
+		var clan_colors := [Color("9fba79"),Color("d1ad79"),Color("b5a2d0")]
+		var clan_index := 0
+		for faction in director.living.reputation:
+			if int(director.living.reputation[faction])>=20:
+				var post: Vector2 = director.moss_position()+Vector2(-90+clan_index*90,-65)
+				draw_line(post,post+Vector2(0,-65),Color("8a7757"),4,true)
+				draw_colored_polygon(PackedVector2Array([post+Vector2(2,-63),post+Vector2(35,-56),post+Vector2(29,-27),post+Vector2(2,-35)]),clan_colors[clan_index])
+			clan_index += 1
 		var bloom: float = 180.0+sin(time*3)*8.0 + director.hearth_bloom*10.0
 		light(game.REST,bloom,Color(1,0.47,0.13,0.4+director.hearth_bloom*0.02))
 		for p in [Vector2(1260,1320),Vector2(2290,1320),Vector2(3500,1320),Vector2(4230,1330)]:
@@ -139,6 +150,7 @@ func _draw() -> void:
 			light(p,45,Color(1,0.62,0.24,0.6))
 		if player_at.distance_to(p)<240:
 			var caption := "OPTIONAL" if entry.kind in ["bonus","event"] else "SUPPLIES" if entry.kind=="cache" else "DISCOVERY"
+			if entry.id=="event" and director.living.is_story(): caption = "CLAN STORY"
 			var width := ThemeDB.fallback_font.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 			var plate := Rect2(p + Vector2(-width * 0.5 - 8, -58), Vector2(width + 16, 18))
 			draw_rect(plate, Color(0.03, 0.05, 0.04, 0.86))

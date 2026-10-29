@@ -141,6 +141,8 @@ func open(page: String = "board") -> void:
 	var active: Dictionary = director.active
 	line("A   G O B L I N ' S   J O U R N E Y" if page=="welcome" else "G O B L I N D E N   /   F I R S T   E X P E D I T I O N",12,GOLD)
 	match page:
+		"chronicle", "choice", "workshop", "world_settings", "legacy":
+			preload("res://trial/chronicle_ui.gd").render(self,page)
 		"welcome":
 			line("GoblinDen",34)
 			line("FIRST EXPEDITION",18,GOLD)
@@ -198,6 +200,8 @@ func open(page: String = "board") -> void:
 					desc.custom_minimum_size.y = 80
 					line("%d scrap  ·  %d XP"%[def.scrap,def.xp],14,GOLD,card)
 					button("Take contract",director.begin.bind(i,-1),card,not director.home())
+			button("The Three Fires · Story & clan journal",func(): open("chronicle"))
+			button("Workshop & clan market",func(): open("workshop"))
 			button("Boss hunts · Defend the den",func(): open("hunts"))
 			button("Prepare · Den upgrades",func(): open("upgrades"))
 			button("Back to the fire",close)
@@ -206,6 +210,7 @@ func open(page: String = "board") -> void:
 			var quest: Dictionary = hunts.current()
 			line("Moss's boss hunts",30,GOLD)
 			line("Nine hunts defend the den. Then the Cinder Orchard offers one final, brutal bonus challenge.",16,MUTED)
+			line("Human commanders can surrender below 20% health. Approach and press E to offer quarter; sparing awards 3 goblin marks and completes the hunt. Creatures and supernatural bosses fight to the end.",15,MUTED)
 			line("%d / %d hunts rewarded" % [hunts.completed_count(),hunts.quests().size()],16,GOLD)
 			if not quest.is_empty():
 				if quest.get("bonus",false):
@@ -266,6 +271,8 @@ func open(page: String = "board") -> void:
 			line("Your field journal",32)
 			line(director.hud_objective_text(),21,GOLD)
 			line(game.rpg.boss_hunts.objective(),16,GOLD)
+			button("The Three Fires · Story & clan journal",func(): open("chronicle"))
+			button("Workshop & clan market",func(): open("workshop"))
 			button("Boss hunt journal",func(): open("hunts"))
 			if game.rpg.boss_hunts.accepted:
 				line(str(game.rpg.boss_hunts.current().hint),15,MUTED)
@@ -302,7 +309,7 @@ func announce(heading: String, description: String) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if overlay.visible and event.physical_keycode in [KEY_ESCAPE,KEY_J]:
-			close()
+			if mode!="legacy": close()
 			get_viewport().set_input_as_handled()
 		elif not get_tree().paused and not director.game.rpg.input_blocked() and event.physical_keycode==KEY_J:
 			open("journal")

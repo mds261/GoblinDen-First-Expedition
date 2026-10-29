@@ -45,6 +45,8 @@ func _ready() -> void:
 		update_health(player.hp,player.max_hp)
 	show_notice("Moss is waiting by the fire. Approach him and press E. [J] opens your field journal.")
 	refresh_objective()
+	if expedition.living.pending_heir:
+		expedition.ui.open("legacy")
 
 func _populate_campaign_enemies(_camp_idx: int) -> void:
 	pass
@@ -83,6 +85,11 @@ func _process(delta: float) -> void:
 			rpg.weather = "Clear"
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and not rpg.input_blocked():
+		if event.physical_keycode in [KEY_G,KEY_V]:
+			expedition.living.use_tool("smoke" if event.physical_keycode==KEY_G else "talisman")
+			get_viewport().set_input_as_handled()
+			return
 	if event.is_action_pressed("restart"):
 		if not rpg.input_blocked():
 			game_menu.open()
@@ -102,3 +109,19 @@ func enter_room(index: int, spawn_point: Vector2, world_spawn: bool = false) -> 
 	super.enter_room(index,spawn_point,world_spawn)
 	if expedition.is_inside_tree():
 		expedition.on_room_entered()
+
+func on_player_died() -> void:
+	call_deferred("_resolve_journey_death")
+
+func _resolve_journey_death() -> void:
+	# Respawn, inheritance and corpse removal must share one save snapshot.
+	restart_pending = true
+	expedition.living.on_death()
+	rpg.die()
+	if expedition.living.legacy_mode:
+		# Legacy equipment is lost, rather than recoverable from the prior body.
+		if not rpg.corpses.is_empty(): rpg.corpses.pop_back()
+	restart_pending = false
+	_auto_save()
+	if expedition.living.legacy_mode:
+		expedition.ui.open("legacy")
